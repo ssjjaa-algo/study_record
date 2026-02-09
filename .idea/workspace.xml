@@ -13,10 +13,25 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "ssjjaa-algo"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/ssjjaa-algo/study_record.git",
+    "accountId": "a87dabab-54f7-479e-8e6f-500cf7d7dcad"
+  }
+}]]></component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
 }</component>
   <component name="ProjectId" id="39Qy2q7Puh8whyTOQ6mZ0aHVyaK" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -27,7 +42,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "com.google.cloudcode.ide_session_index": "20260209_0003",
-    "git-widget-placeholder": "master",
+    "git-widget-placeholder": "main",
     "junie.onboarding.icon.badge.shown": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "D:/sidepj/record/k8s/img",
@@ -61,7 +76,7 @@
       <option name="presentableId" value="Default" />
       <updated>1770642384872</updated>
       <workItem from="1770642386067" duration="26000" />
-      <workItem from="1770642516508" duration="1573000" />
+      <workItem from="1770642516508" duration="2565000" />
     </task>
     <servers />
   </component>
