@@ -13,7 +13,7 @@
     - OCI(Open Container Initiative) 표준의 2가지
         - image spec : 이미지가 어떻게 만들어져야 하는지에 대한 규격
         - runtime spec : 컨테이너 런타임이 어떻게 개발되어야 하는지에 대한 규격
-        ![OCI.png](img/OCI.png)
+        - ![OCI.png](img/OCI.png)
 
 ## Dockershim
 
