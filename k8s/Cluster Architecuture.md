@@ -58,5 +58,3 @@
 ### kube-proxy
 
 - 서로 다른 노드에 있는 애플리케이션 간의 통신을 가능하게 해주는 역할
-
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/9dc8d30d-5946-433d-b625-05408022dc4c/3ef74fcb-f44f-48ea-9133-5bc3557cfb3e/Untitled.png)
