@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ff04ec65-c18e-4654-9b90-99002ceeaf72" name="변경" comment="" />
+    <list default="true" id="ff04ec65-c18e-4654-9b90-99002ceeaf72" name="변경" comment="">
+      <change afterPath="$PROJECT_DIR$/k8s/etcd.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/k8s/img/etcd_manual.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -13,18 +17,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "ssjjaa-algo"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;ssjjaa-algo&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/ssjjaa-algo/study_record.git",
-    "accountId": "a87dabab-54f7-479e-8e6f-500cf7d7dcad"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/ssjjaa-algo/study_record.git&quot;,
+    &quot;accountId&quot;: &quot;a87dabab-54f7-479e-8e6f-500cf7d7dcad&quot;
   }
-}]]></component>
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
 }</component>
@@ -41,7 +45,8 @@
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "com.google.cloudcode.ide_session_index": "20260209_0003",
+    "RunOnceActivity.git.unshallow": "true",
+    "com.google.cloudcode.ide_session_index": "20260210_0001",
     "git-widget-placeholder": "main",
     "junie.onboarding.icon.badge.shown": "true",
     "kotlin-language-version-configured": "true",
@@ -76,7 +81,8 @@
       <option name="presentableId" value="Default" />
       <updated>1770642384872</updated>
       <workItem from="1770642386067" duration="26000" />
-      <workItem from="1770642516508" duration="2565000" />
+      <workItem from="1770642516508" duration="2870000" />
+      <workItem from="1770723221758" duration="316000" />
     </task>
     <servers />
   </component>
