@@ -5,8 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ff04ec65-c18e-4654-9b90-99002ceeaf72" name="변경" comment="">
-      <change afterPath="$PROJECT_DIR$/k8s/ReplicaSets.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/k8s/img/ReplicaSets.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/k8s/Service.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/k8s/img/Service-NodePort.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/k8s/img/Service-NodePort2.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/k8s/img/Service-networking.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/k8s/img/Service-types.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/k8s/img/Services.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -70,6 +74,7 @@
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="D:\sidepj\record\k8s\img" />
+      <recent name="D:\sidepj\record\k8s\Service-NodePort" />
     </key>
   </component>
   <component name="SharedIndexes">
@@ -89,7 +94,7 @@
       <updated>1770642384872</updated>
       <workItem from="1770642386067" duration="26000" />
       <workItem from="1770642516508" duration="2870000" />
-      <workItem from="1770723221758" duration="1798000" />
+      <workItem from="1770723221758" duration="3238000" />
     </task>
     <servers />
   </component>
