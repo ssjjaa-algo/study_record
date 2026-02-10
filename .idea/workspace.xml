@@ -5,9 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ff04ec65-c18e-4654-9b90-99002ceeaf72" name="변경" comment="">
-      <change afterPath="$PROJECT_DIR$/k8s/etcd.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/k8s/img/etcd_manual.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/k8s/Pod.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -29,6 +27,10 @@
     &quot;accountId&quot;: &quot;a87dabab-54f7-479e-8e6f-500cf7d7dcad&quot;
   }
 }</component>
+  <component name="KubernetesApiPersistence"><![CDATA[{}]]></component>
+  <component name="KubernetesApiProvider"><![CDATA[{
+  "isMigrated": true
+}]]></component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
 }</component>
@@ -64,6 +66,9 @@
     <key name="CopyFile.RECENT_KEYS">
       <recent name="D:\sidepj\record\k8s\img" />
     </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\sidepj\record\k8s\img" />
+    </key>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
@@ -82,7 +87,7 @@
       <updated>1770642384872</updated>
       <workItem from="1770642386067" duration="26000" />
       <workItem from="1770642516508" duration="2870000" />
-      <workItem from="1770723221758" duration="316000" />
+      <workItem from="1770723221758" duration="1300000" />
     </task>
     <servers />
   </component>
