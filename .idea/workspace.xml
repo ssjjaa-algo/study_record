@@ -5,7 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ff04ec65-c18e-4654-9b90-99002ceeaf72" name="변경" comment="">
-      <change afterPath="$PROJECT_DIR$/k8s/Labels and Selectors.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/k8s/Taints And Tolerations.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -28,10 +28,10 @@
     &quot;accountId&quot;: &quot;a87dabab-54f7-479e-8e6f-500cf7d7dcad&quot;
   }
 }</component>
-  <component name="KubernetesApiPersistence"><![CDATA[{}]]></component>
-  <component name="KubernetesApiProvider"><![CDATA[{
-  "isMigrated": true
-}]]></component>
+  <component name="KubernetesApiPersistence">{}</component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
 }</component>
@@ -49,7 +49,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "com.google.cloudcode.ide_session_index": "20260210_0001",
+    "com.google.cloudcode.ide_session_index": "20260211_0001",
     "git-widget-placeholder": "main",
     "junie.onboarding.icon.badge.shown": "true",
     "kotlin-language-version-configured": "true",
@@ -89,7 +89,8 @@
       <updated>1770642384872</updated>
       <workItem from="1770642386067" duration="26000" />
       <workItem from="1770642516508" duration="2870000" />
-      <workItem from="1770723221758" duration="5396000" />
+      <workItem from="1770723221758" duration="6740000" />
+      <workItem from="1770809695946" duration="697000" />
     </task>
     <servers />
   </component>
