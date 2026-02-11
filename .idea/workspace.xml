@@ -5,9 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ff04ec65-c18e-4654-9b90-99002ceeaf72" name="변경" comment="">
-      <change afterPath="$PROJECT_DIR$/k8s/Daemonset.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/k8s/img/Daemonset.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/k8s/static pods.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -91,7 +89,7 @@
       <workItem from="1770642386067" duration="26000" />
       <workItem from="1770642516508" duration="2870000" />
       <workItem from="1770723221758" duration="6740000" />
-      <workItem from="1770809695946" duration="3625000" />
+      <workItem from="1770809695946" duration="4283000" />
     </task>
     <servers />
   </component>
