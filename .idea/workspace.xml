@@ -5,7 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ff04ec65-c18e-4654-9b90-99002ceeaf72" name="변경" comment="">
-      <change afterPath="$PROJECT_DIR$/k8s/Taints And Tolerations.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/k8s/Node Selctors &amp; Affinity.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -90,7 +90,7 @@
       <workItem from="1770642386067" duration="26000" />
       <workItem from="1770642516508" duration="2870000" />
       <workItem from="1770723221758" duration="6740000" />
-      <workItem from="1770809695946" duration="697000" />
+      <workItem from="1770809695946" duration="1338000" />
     </task>
     <servers />
   </component>
