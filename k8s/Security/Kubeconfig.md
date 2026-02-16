@@ -36,6 +36,9 @@ kubectl get pods
 - kubectl은 기본적으로 사용자 홈 디렉터리 아래 `.kube/config` 파일을 찾음
 - 여기에 kubeconfig를 두면 kubectl 명령에 경로를 따로 지정하지 않아도 됨
 - 지금까지 kubectl 명령에서 옵션을 안 줬던 이유
+- kubectl 작동방식
+    - kubectl → kubeconfig 확인 → 현재 context 확인 → 해당 cluster + user 정보로 API Server 접속
+    - 즉 kubeconfig = kubectl의 “접속 프로필 저장소”
 
 ## kubeconfig 구성 요소 3개
 
