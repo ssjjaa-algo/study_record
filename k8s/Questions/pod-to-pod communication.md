@@ -1,0 +1,61 @@
+- **Pod to Pod 통신의 전제**
+    - Kubernetes 네트워크 모델은 **모든 Pod가 클러스터 전체에서 직접 통신 가능**해야 함
+    - 같은 노드든 다른 노드든 **상대 Pod IP로 통신 가능**해야 함
+    - 이건 Kubernetes의 **요구사항**이고, 실제 구현은 보통 **CNI 플러그인**이 담당함
+- **Pod는 고유 IP를 가짐**
+    - 각 Pod는 클러스터 내에서 고유한 IP를 받음
+    - 그래서 A Pod가 B Pod의 IP를 알고 있으면 **바로 B Pod로 요청 가능**함
+- **항상 상대 Pod IP를 알고 있는 것은 아님**
+    - A Pod가 B Pod IP를 **알 수도 있고 모를 수도 있음**
+    - 모르는 경우가 흔함
+    - 이유는 Pod가 재생성되면 IP가 바뀔 수 있기 때문임
+- **Pod IP를 모를 때는 보통 Service를 사용**
+    - 실무에서는 보통 Pod IP를 직접 들고 다니지 않고
+    - **Service 이름(DNS)** 으로 호출함
+    - Service가 backend Pod 집합 앞의 **안정적인 진입점** 역할을 함
+- **Service는 Pod 소속 개념이 아님**
+    - Service는 Pod를 “가두는 네트워크 경계”가 아님
+    - 단지 **특정 label의 Pod 집합을 대표하는 주소**일 뿐임
+    - 그래서 서로 다른 Service 뒤에 있는 Pod끼리도 **통신 가능**함
+    - 통신 가능 여부를 막는 것은 보통 **NetworkPolicy**임
+- **Service가 backend Pod를 아는 방식**
+    - Service는 `selector`로 Pod label을 보고 backend를 정함
+    - 즉 **Pod가 Service를 선택하는 게 아니라, Service가 Pod를 선택**함
+- **Pod가 Service를 호출하는 방식**
+    - 클라이언트 Pod 안의 애플리케이션이
+        - Service 이름
+        - 또는 ClusterIP
+          로 요청하면 됨
+    - 보통은 **IP 하드코딩보다 Service DNS 이름 사용**이 일반적임
+- **Pod to Pod 직접 통신과 Service 경유 통신 차이**
+    - 직접 통신:
+        - `A Pod -> B Pod IP`
+    - Service 경유:
+        - `A Pod -> Service -> backend Pod 하나 선택 -> B Pod`
+    - 즉 Service는 **필수가 아니라 선택 사항**
+    - 단, 운영에서는 보통 Service를 씀
+- **Node to Node 이동이 필요한 경우**
+    - B Pod가 다른 노드에 있으면
+        - `A Pod -> A가 있는 Node 네트워크 -> 다른 Node -> B Pod`
+          흐름이 됨
+    - Service를 쓰는 경우에도 본질은 같음
+        - `A Pod -> Service -> backend Pod 선택 -> 필요 시 그 Pod가 있는 Node로 이동 -> B Pod`
+    - 기본적으로 **노드를 먼저 고르고 Pod를 고르는 구조가 아니라**
+        - **Pod를 먼저 선택하고**
+        - 그 결과로 필요하면 node-to-node 이동이 생김
+- **Pod 재생성과 IP**
+    - Pod가 재생성되면 **IP가 바뀔 수 있음**
+    - 같은 Pod 안에서 컨테이너만 재시작되면 Pod IP는 유지될 수 있음
+    - 하지만 **Pod 자체가 새로 생성되면 새 IP**일 수 있음
+- **바뀌는 Pod IP는 누가 관리하나**
+    - Service가 앞단의 **고정 주소** 역할을 하고
+    - **`EndpointSlice`**가 현재 살아 있는 backend Pod IP 목록을 관리하고
+    - **`kube-proxy`**가 이를 반영해서 실제 트래픽 전달 규칙을 갱신함
+    - 그래서 클라이언트는 계속 같은 Service 이름으로 호출하면 됨
+- **같은 Deployment 내 통신**
+    - 보통은 상대 Pod IP를 직접 하지 않고
+    - 그 Deployment의 Pod 집합 앞에 둔 **Service 이름**으로 통신함
+    - 즉 “Deployment 내 Pod끼리 통신”도 보통은 결국 **Service를 통해 backend Pod 중 하나로 전달**되는 구조임
+- **한 줄 정리**
+    - **Pod to Pod 통신 자체는 Pod IP 기반으로 직접 가능**
+    - 하지만 **Pod IP는 바뀔 수 있으므로**, 실무에서는 보통 **Service 이름으로 호출하고**, Kubernetes가 backend Pod IP 변경을 대신 관리함
