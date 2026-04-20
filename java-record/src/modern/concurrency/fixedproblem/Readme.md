@@ -19,3 +19,5 @@ synchronized (lock) {
 - `ReentrantLock`은 가상 스레드를 인지할 수 있는 park/unpark 메커니즘을 사용한다
 
 `ReentrantLock`은 락 획득 실패 스레드를 `LockSupport.park()`로 대기시키고 해제 시 `unpark()`로 깨운다. JDK 21에서 `LockSupport`는 가상 스레드가 park될 때 carrier thread를 반납할 수 있도록 지원하므로, monitor 기반의 `synchronized`보다 virtual thread pinning 문제를 완화하는 데 유리하다. 따라서 빈번하게 실행되며 I/O를 포함하는 임계구역에서는 `synchronized`보다 `ReentrantLock`이 더 적절한 선택이 될 수 있다.
+
+- Reentrantlock 설명: [Readme.md](../reentrantlock/Readme.md)
