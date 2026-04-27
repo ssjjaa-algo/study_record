@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 
-public class UnstructuredFastFailManualCancelExample {
+public class UnstructuredlManualCancelExample {
 
     public static void main(String[] args) throws Exception {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
