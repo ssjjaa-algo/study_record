@@ -6,7 +6,7 @@ import java.util.*;
     3. 최대 8개의 크기를 가질 수 있다 -> bit mask 사용
 */
 
-class Solution {
+class 불량사용자 {
     private Set<Integer> answerSet = new HashSet<>();
     private Map<String, Integer> wordMap = new HashMap<>();
     private Map<String, Set<Integer>> map = new HashMap<>();
