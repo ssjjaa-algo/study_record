@@ -1,0 +1,16 @@
+# Spring Boot metric targets.
+#
+# Server requirement:
+# - Expose GET /actuator/prometheus
+# - Use spring-boot-starter-actuator
+# - Use micrometer-registry-prometheus
+#
+# Docker Desktop에서 호스트 PC의 서버를 바라볼 때는 host.docker.internal을 사용합니다.
+
+- targets:
+    - host.docker.internal:8080
+  labels:
+    application: sample-api
+    environment: local
+    scheme: http
+    metrics_path: /actuator/prometheus
