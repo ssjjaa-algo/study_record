@@ -1,0 +1,10 @@
+# Spring Boot health targets for Blackbox Exporter.
+#
+# Server requirement:
+# - Expose GET /actuator/health
+
+- targets:
+    - http://host.docker.internal:8080/actuator/health
+  labels:
+    application: sample-api
+    environment: local
