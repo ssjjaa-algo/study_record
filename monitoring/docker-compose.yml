@@ -8,6 +8,7 @@ services:
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
       - --web.enable-lifecycle
+      - --web.enable-remote-write-receiver
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
@@ -47,6 +48,31 @@ services:
       - ./config/loki/loki.yml:/etc/loki/loki.yml:ro
       - loki-data:/loki
 
+  tempo:
+    image: grafana/tempo:2.9.0
+    command:
+      - -config.file=/etc/tempo/tempo.yml
+    ports:
+      - "${TEMPO_PORT:-3200}:3200"
+    volumes:
+      - ./config/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo-data:/var/tempo
+    depends_on:
+      - prometheus
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.153.0
+    command:
+      - --config=/etc/otelcol/config.yaml
+    ports:
+      - "${OTEL_GRPC_PORT:-4317}:4317"
+      - "${OTEL_HTTP_PORT:-4318}:4318"
+      - "${OTEL_HEALTH_PORT:-13133}:13133"
+    volumes:
+      - ./config/otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      - tempo
+
   alloy:
     image: grafana/alloy:v1.16.1
     command:
@@ -79,10 +105,12 @@ services:
     depends_on:
       - prometheus
       - loki
+      - tempo
 
 volumes:
   prometheus-data:
   alertmanager-data:
   loki-data:
+  tempo-data:
   alloy-data:
   grafana-data:
