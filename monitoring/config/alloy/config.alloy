@@ -1,0 +1,41 @@
+logging {
+  level = "info"
+}
+
+loki.source.file "spring_logs" {
+  targets = [
+    {
+      "__path__" = "/observed-logs/sample-api/*.log",
+      "application" = "sample-api",
+      "environment" = "local",
+      "job" = "spring-boot",
+    },
+  ]
+
+  forward_to = [loki.process.spring_logs.receiver]
+
+  file_match {
+    enabled = true
+    sync_period = "10s"
+  }
+}
+
+loki.process "spring_logs" {
+  stage.regex {
+    expression = "^(?P<timestamp>\\d{4}-\\d{2}-\\d{2}[^ ]*\\s+[^ ]+)\\s+(?P<level>[A-Z]+)\\s+.*"
+  }
+
+  stage.labels {
+    values = {
+      level = "",
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
