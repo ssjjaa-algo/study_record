@@ -1,0 +1,12 @@
+﻿이름,태그
+1. process,"cpu, memory"
+2. Multi process,
+3. thread & Multi thread,
+4. process VS thread 간단설명,
+5. multi process vs multi thread,"Context, 자원"
+6.  multi process 데이터 주고받는 과정,"IPC, kernel, message, shared"
+7. multi process/thread 동기화 문제 해결,"Mutex, Semaphore"
+8. Deadlock,
+9. paging,
+10. segmentation,
+11. 가상 메모리,

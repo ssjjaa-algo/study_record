@@ -1,0 +1,17 @@
+﻿이름,태그
+Pods,2-27
+ReplicaSets,2-30
+Deployment,2-34
+Service,2-39
+Namespaces,2-42
+Imperative Commands,2-46
+Manual Scheduling,3-54
+Labels and Selectors,3-57
+Taints and Tolerations,3-60
+Node Affinity,3-63
+DaemonSets,
+Rolling Updates and Rollbacks,
+OS Upgrades,
+Cluster Upgrade,
+View Certificates,
+Certificates API,

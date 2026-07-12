@@ -1,0 +1,14 @@
+﻿이름,태그
+Manual Scheduling,
+labels and selectors,label
+Taints And Tolerations,
+Node Selectors & Node Affinity,
+Node Affinity vs Taints and Tolerations,
+Resource Requirements,
+Daemon Sets,
+static pods,
+Priority Classes,
+multiple scheduler,
+scheduler profile,
+Admission Controllers,
+Validating and Mutating Admission Controllers,

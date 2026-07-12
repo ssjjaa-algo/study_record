@@ -1,0 +1,10 @@
+﻿이름,태그
+CI / CD 개념,RedHat
+CI / CD 연동 2차,SSAFY 설명
+1. Gitlab & Jenkins CI (Webhook),적용 기록
+2. Jenkins (빌드),적용 기록
+3.(부가).yml 보안 위한 Credentials 추가,적용 기록
+4. CD(배포),적용 기록
+5. nginX 설정,적용 기록
+"산출물 ",
+pipeline,

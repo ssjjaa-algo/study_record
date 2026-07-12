@@ -1,0 +1,31 @@
+# ٬??Ѧ??? ټ???? ۩????
+
+Database export: [database.csv](./database.csv)
+
+## Pages
+
+- [Why don’t you go in there, Dwight, and find these people a plan that’ll work for them, okay?](why-don’t-you-go-in-there,-dwight,-and-find-these-people-a-plan-that’ll-work-for-them,-okay/README.md)
+- [Got to go, I have to take this.](got-to-go,-i-have-to-take-this/README.md)
+- [Just don’t let anybody in my office under any conditions today.](just-don’t-let-anybody-in-my-office-under-any-conditions-today/README.md)
+- [passed through](passed-through/README.md)
+- [I get no pleasure out of saying the words,](i-get-no-pleasure-out-of-saying-the-words,/README.md)
+- [Trying to give the troops a boost / take a spin on your big ride](trying-to-give-the-troops-a-boost-take-a-spin-on-your-big-ride/README.md)
+- [You let him walk all over you.](you-let-him-walk-all-over-you/README.md)
+- [I was thinking that maybe we could take them down to take a spin on your big ride](i-was-thinking-that-maybe-we-could-take-them-down-to-take-a-spin-on-your-big-ride/README.md)
+- [Someone in this office is coming up with all this ridiculous stuff.](someone-in-this-office-is-coming-up-with-all-this-ridiculous-stuff/README.md)
+- [You could be referring to anything.](you-could-be-referring-to-anything/README.md)
+- [I have had her go out and find out whose birthday is coming up,](i-have-had-her-go-out-and-find-out-whose-birthday-is-coming-up,/README.md)
+- [Of course, by saying that, she was gambling that I wouldn’t smack her](of-course,-by-saying-that,-she-was-gambling-that-i-wouldn’t-smack-her/README.md)
+- [If you haven’t already gotten a cake, maybe go in for one of those ice cream cakes from Baskin Robbins.](if-you-haven’t-already-gotten-a-cake,-maybe-go-in-for-one-of-those-ice-cream-cakes-from-baskin-robbins/README.md)
+- [I spend hours thinking of ways to get back at him, but only in ways that would get me arrested](i-spend-hours-thinking-of-ways-to-get-back-at-him,-but-only-in-ways-that-would-get-me-arrested/README.md)
+- [That’s not me being mean,](that’s-not-me-being-mean,/README.md)
+- [That ties in perfectly with something that Michael was telling me earlier.](that-ties-in-perfectly-with-something-that-michael-was-telling-me-earlier/README.md)
+- [That place is like the promised land to me](that-place-is-like-the-promised-land-to-me/README.md)
+- [Is that it?](is-that-it/README.md)
+- [I should never have let the temp touch this thing](i-should-never-have-let-the-temp-touch-this-thing/README.md)
+- [I kind of play that close to the chest](i-kind-of-play-that-close-to-the-chest/README.md)
+- [You should know me better than that](you-should-know-me-better-than-that/README.md)
+- [I should never have let the temp touch this thing](i-should-never-have-let-the-temp-touch-this-thing-37dc598e/README.md)
+- [You kind of have your foot in both camps](you-kind-of-have-your-foot-in-both-camps/README.md)
+- [it’s going to take you a while to adjust to civilian life](it’s-going-to-take-you-a-while-to-adjust-to-civilian-life/README.md)
+- [that he should have taken his own life in this way is a mystery and a shock to all who knew him](that-he-should-have-taken-his-own-life-in-this-way-is-a-mystery-and-a-shock-to-all-who-knew-him/README.md)

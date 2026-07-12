@@ -1,0 +1,16 @@
+﻿이름,태그
+Object,
+Component,
+Kubernetes API,
+Nodes,
+Communication between Nodes and the Control Plane,
+Controller,
+Container Runtime Interface,
+Pod,"DaemonSet, Deployment, StatefulSet"
+Service,
+Namespaces,
+Scheduler,
+Labels and Selectors,
+Taints and Tolerations,
+Resource Management for Pods and Containers,
+Security,
