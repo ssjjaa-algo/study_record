@@ -1,0 +1,4 @@
+rootProject.name = 'ticket'
+
+include 'api'
+include 'consumer'
