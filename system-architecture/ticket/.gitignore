@@ -1,0 +1,13 @@
+.gradle/
+**/.gradle/
+build/
+**/build/
+data/
+**/data/
+.idea/
+*.log
+*.h2.db
+*.mv.db
+*.trace.db
+*.lock.db
+*.log
