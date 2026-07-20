@@ -1,4 +1,4 @@
-package sys.arch.productdetailcache.api;
+package sys.arch.productdetailcache.api.dto;
 
 
 public record ProductUpdateRequest(

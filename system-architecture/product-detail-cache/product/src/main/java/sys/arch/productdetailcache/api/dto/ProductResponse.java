@@ -1,4 +1,4 @@
-package sys.arch.productdetailcache.api;
+package sys.arch.productdetailcache.api.dto;
 
 import sys.arch.productdetailcache.domain.Product;
 
