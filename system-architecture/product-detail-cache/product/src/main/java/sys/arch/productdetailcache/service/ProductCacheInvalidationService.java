@@ -1,5 +1,7 @@
 package sys.arch.productdetailcache.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,9 +12,11 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+import sys.arch.productdetailcache.api.dto.ProductResponse;
 import sys.arch.productdetailcache.domain.CacheInvalidationStatus;
 import sys.arch.productdetailcache.domain.ProductCacheInvalidationEvent;
 import sys.arch.productdetailcache.repository.ProductCacheInvalidationEventRepository;
+import sys.arch.productdetailcache.repository.ProductRepository;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -25,18 +29,27 @@ public class ProductCacheInvalidationService {
     private static final String PRODUCT_VERSION_KEY_PREFIX = "product:version:";
 
     private final ProductCacheInvalidationEventRepository eventRepository;
+    private final ProductRepository productRepository;
     private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
+    private final Duration cacheTtl;
     private final Duration versionTtl;
     private final int maxRetryCount;
 
     public ProductCacheInvalidationService(
             ProductCacheInvalidationEventRepository eventRepository,
+            ProductRepository productRepository,
             StringRedisTemplate redisTemplate,
+            ObjectMapper objectMapper,
+            @Value("${product.cache.ttl-seconds:600}") long cacheTtlSeconds,
             @Value("${product.cache.version-ttl-seconds:3600}") long versionTtlSeconds,
             @Value("${product.cache.max-retry-count:20}") int maxRetryCount
     ) {
         this.eventRepository = eventRepository;
+        this.productRepository = productRepository;
         this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
+        this.cacheTtl = Duration.ofSeconds(cacheTtlSeconds);
         this.versionTtl = Duration.ofSeconds(versionTtlSeconds);
         this.maxRetryCount = maxRetryCount;
     }
@@ -60,14 +73,27 @@ public class ProductCacheInvalidationService {
         }
 
         try {
+            if (hasNewerCacheVersion(event)) {
+                event.markProcessed();
+                return;
+            }
+
+            ProductResponse product = productRepository.findById(event.getProductId())
+                    .map(ProductResponse::from)
+                    .orElseThrow(() -> new IllegalStateException("Product not found. productId=" + event.getProductId()));
+
             redisTemplate.opsForValue().set(
-                    productVersionKey(event.getProductId()),
-                    String.valueOf(event.getProductVersion()),
+                    productVersionKey(product.id()),
+                    String.valueOf(product.version()),
                     versionTtl
             );
-            redisTemplate.delete(productCacheKey(event.getProductId()));
+            redisTemplate.opsForValue().set(
+                    productCacheKey(product.id()),
+                    objectMapper.writeValueAsString(product),
+                    cacheTtl
+            );
             event.markProcessed();
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | JsonProcessingException e) {
             markRetryOrFailed(event, e);
         }
     }
@@ -80,13 +106,18 @@ public class ProductCacheInvalidationService {
         event.markPendingForRetry();
     }
 
-    private void markRetryOrFailed(ProductCacheInvalidationEvent event, RuntimeException exception) {
+    private boolean hasNewerCacheVersion(ProductCacheInvalidationEvent event) {
+        String versionValue = redisTemplate.opsForValue().get(productVersionKey(event.getProductId()));
+        return versionValue != null && Long.parseLong(versionValue) > event.getProductVersion();
+    }
+
+    private void markRetryOrFailed(ProductCacheInvalidationEvent event, Exception exception) {
         String errorMessage = exception.getClass().getSimpleName() + ": " + exception.getMessage();
 
         if (event.getRetryCount() + 1 >= maxRetryCount) {
             event.markFailed(errorMessage);
             log.error(
-                    "Product cache invalidation moved to FAILED. eventId={}, productId={}, version={}, retryCount={}",
+                    "Product cache refresh moved to FAILED. eventId={}, productId={}, version={}, retryCount={}",
                     event.getId(),
                     event.getProductId(),
                     event.getProductVersion(),
@@ -98,7 +129,7 @@ public class ProductCacheInvalidationService {
 
         event.markRetry(errorMessage);
         log.warn(
-                "Product cache invalidation failed. eventId={}, productId={}, version={}, retryCount={}",
+                "Product cache refresh failed. eventId={}, productId={}, version={}, retryCount={}",
                 event.getId(),
                 event.getProductId(),
                 event.getProductVersion(),

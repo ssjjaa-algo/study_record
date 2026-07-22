@@ -9,8 +9,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 import sys.arch.productdetailcache.api.dto.ProductResponse;
 import sys.arch.productdetailcache.api.dto.ProductUpdateRequest;
@@ -32,7 +30,6 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ProductCacheInvalidationEventRepository eventRepository;
-    private final ProductCacheInvalidationService productCacheInvalidationService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final Duration cacheTtl;
@@ -40,14 +37,12 @@ public class ProductService {
     public ProductService(
             ProductRepository productRepository,
             ProductCacheInvalidationEventRepository eventRepository,
-            ProductCacheInvalidationService productCacheInvalidationService,
             StringRedisTemplate redisTemplate,
             ObjectMapper objectMapper,
             @Value("${product.cache.ttl-seconds:600}") long cacheTtlSeconds
     ) {
         this.productRepository = productRepository;
         this.eventRepository = eventRepository;
-        this.productCacheInvalidationService = productCacheInvalidationService;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.cacheTtl = Duration.ofSeconds(cacheTtlSeconds);
@@ -82,11 +77,9 @@ public class ProductService {
 
         product.update(request.name(), request.price(), request.description(), request.popular());
         ProductResponse response = ProductResponse.from(product);
-        ProductCacheInvalidationEvent event = eventRepository.save(
+        eventRepository.save(
                 new ProductCacheInvalidationEvent(response.id(), response.version())
         );
-
-        processInvalidationAfterCommit(event.getId());
 
         return response;
     }
@@ -178,15 +171,6 @@ public class ProductService {
         } catch (RuntimeException e) {
             log.warn("Product cache clear failed.", e);
         }
-    }
-
-    private void processInvalidationAfterCommit(Long eventId) {
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                productCacheInvalidationService.processEvent(eventId);
-            }
-        });
     }
 
     private String productCacheKey(Long productId) {

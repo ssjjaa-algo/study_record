@@ -33,9 +33,6 @@ class ProductServiceTest {
     ProductCacheInvalidationEventRepository eventRepository;
 
     @Mock
-    ProductCacheInvalidationService invalidationService;
-
-    @Mock
     StringRedisTemplate redisTemplate;
 
     @Mock
@@ -46,7 +43,6 @@ class ProductServiceTest {
         ProductService productService = new ProductService(
                 productRepository,
                 eventRepository,
-                invalidationService,
                 redisTemplate,
                 new ObjectMapper().registerModule(new JavaTimeModule()),
                 600
