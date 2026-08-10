@@ -32,10 +32,6 @@ public final class WaitingQueueRedisKeys {
         return eventKey(eventId, "active-started");
     }
 
-    public static String activeLastRequest(String eventId) {
-        return eventKey(eventId, "active-last-request");
-    }
-
     public static String waitingLastSeen(String eventId) {
         return eventKey(eventId, "waiting-last-seen");
     }

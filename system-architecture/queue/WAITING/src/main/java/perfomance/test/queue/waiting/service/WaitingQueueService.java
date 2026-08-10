@@ -1,9 +1,13 @@
 package perfomance.test.queue.waiting.service;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 import perfomance.test.queue.waiting.domain.WaitingQueueRegistration;
+import perfomance.test.queue.waiting.domain.WaitingQueueProgress;
 import perfomance.test.queue.waiting.domain.WaitingQueueState;
 import perfomance.test.queue.waiting.domain.WaitingQueueStatus;
 import perfomance.test.queue.waiting.repository.QueueCommandResult;
@@ -21,6 +25,7 @@ public class WaitingQueueService {
     private final WaitingQueueRepository repository;
     private final AdmissionService admissionService;
     private final AdmissionTokenService tokenService;
+    private final Map<String, Mono<WaitingQueueProgress>> progressCache = new ConcurrentHashMap<>();
 
     public WaitingQueueService(
             WaitingQueueRepository repository,
@@ -49,6 +54,30 @@ public class WaitingQueueService {
                 .map(result -> toStatus(eventId, userId, result));
     }
 
+    public Mono<WaitingQueueProgress> findProgress(String eventId, long sequence) {
+        validateIdentifier("eventId", eventId);
+        if (sequence <= 0) {
+            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "sequence must be positive."));
+        }
+        return progressCache.computeIfAbsent(
+                eventId,
+                key -> Mono.defer(() -> repository.findProgress(key)
+                                .switchIfEmpty(Mono.error(new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Waiting event not found."
+                                ))))
+                        .cache(Duration.ofSeconds(3))
+        ).map(progress -> {
+            long position = Math.max(1, sequence - progress.lastAdmittedSequence());
+            return new WaitingQueueProgress(
+                    progress.eventId(),
+                    progress.lastAdmittedSequence(),
+                    progress.activeCount(),
+                    nextPollAfterSeconds(WaitingQueueState.WAITING, position)
+            );
+        });
+    }
+
     public Mono<WaitingQueueStatus> release(
             String eventId,
             String userId,
@@ -70,29 +99,6 @@ public class WaitingQueueService {
                     }
                     return admissionService.admitNow(eventId)
                             .thenReturn(toStatus(eventId, userId, result));
-                });
-    }
-
-    public Mono<WaitingQueueStatus> recordActivity(
-            String eventId,
-            String userId,
-            long sequence,
-            String authority
-    ) {
-        validate(eventId, userId, authority);
-        if (sequence <= 0) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "sequence must be positive."));
-        }
-        return repository.recordActivity(eventId, userId, sequence)
-                .flatMap(this::requireQueueResult)
-                .flatMap(result -> {
-                    if (!"ACTIVE".equals(result.code())) {
-                        return Mono.error(new ResponseStatusException(
-                                HttpStatus.CONFLICT,
-                                "Active admission has expired."
-                        ));
-                    }
-                    return Mono.just(toStatus(eventId, userId, result));
                 });
     }
 

@@ -1,33 +1,24 @@
 package perfomance.test.queue.waiting.dto.response;
 
-import java.time.Instant;
-
+import com.fasterxml.jackson.annotation.JsonInclude;
 import perfomance.test.queue.waiting.domain.WaitingQueueState;
 import perfomance.test.queue.waiting.domain.WaitingQueueStatus;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record WaitingQueueStatusResponse(
-        String eventId,
-        String userId,
         WaitingQueueState status,
-        long sequence,
+        Long sequence,
         Long position,
-        Long peopleAhead,
-        long activeCount,
-        Instant expiresAt,
-        int nextPollAfterSeconds,
+        Integer nextPollAfterSeconds,
         String admissionToken
 ) {
     public static WaitingQueueStatusResponse from(WaitingQueueStatus status) {
+        boolean waiting = status.status() == WaitingQueueState.WAITING;
         return new WaitingQueueStatusResponse(
-                status.eventId(),
-                status.userId(),
                 status.status(),
-                status.sequence(),
-                status.position(),
-                status.peopleAhead(),
-                status.activeCount(),
-                status.expiresAt(),
-                status.nextPollAfterSeconds(),
+                waiting ? status.sequence() : null,
+                waiting ? status.position() : null,
+                waiting ? status.nextPollAfterSeconds() : null,
                 status.admissionToken()
         );
     }

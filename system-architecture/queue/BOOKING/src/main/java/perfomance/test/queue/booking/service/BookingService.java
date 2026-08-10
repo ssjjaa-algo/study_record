@@ -43,7 +43,6 @@ public class BookingService {
             return existing;
         }
 
-        waitingQueueClient.recordActivity(claims);
         BookingRepository.BookingStart start = repository.start(claims);
         if (!start.newlyStarted()) {
             return start.booking();

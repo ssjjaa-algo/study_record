@@ -30,7 +30,8 @@ public class WaitingEventRepository {
                 'waitingInactivityTimeoutSeconds', ARGV[5],
                 'activeInactivityTimeoutSeconds', ARGV[6],
                 'maxActiveDurationSeconds', ARGV[7],
-                'dataRetentionSeconds', ARGV[8])
+                'dataRetentionSeconds', ARGV[8],
+                'lastAdmittedSequence', 0)
             redis.call('SADD', KEYS[2], ARGV[1])
             return 'OPEN'
             """, String.class);
@@ -146,7 +147,6 @@ public class WaitingEventRepository {
                                 WaitingQueueRedisKeys.state(eventId),
                                 WaitingQueueRedisKeys.userSequence(eventId),
                                 WaitingQueueRedisKeys.activeStarted(eventId),
-                                WaitingQueueRedisKeys.activeLastRequest(eventId),
                                 WaitingQueueRedisKeys.waitingLastSeen(eventId),
                                 WaitingQueueRedisKeys.sequence(eventId),
                                 WaitingQueueRedisKeys.admissionBudget(eventId)

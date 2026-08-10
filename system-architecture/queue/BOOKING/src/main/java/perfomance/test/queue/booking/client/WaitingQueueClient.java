@@ -6,8 +6,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestClient;
 
 @Component
@@ -19,26 +17,6 @@ public class WaitingQueueClient {
 
     public WaitingQueueClient(@Value("${waiting.base-url:http://localhost:8081}") String waitingBaseUrl) {
         this.restClient = RestClient.create(waitingBaseUrl);
-    }
-
-    public void recordActivity(AdmissionTokenClaims claims) {
-        try {
-            restClient.post()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/api/v1/waiting-events/{eventId}/queue/activity")
-                            .queryParam("userId", claims.userId())
-                            .queryParam("sequence", claims.sequence())
-                            .queryParam("authority", "user")
-                            .build(claims.eventId()))
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (RuntimeException exception) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Active admission is no longer valid.",
-                    exception
-            );
-        }
     }
 
     @Async("releaseExecutor")

@@ -138,6 +138,8 @@
     let pollTimer;
     let statusRequestInFlight = false;
     let bookingStarted = false;
+    let queueSequence = 0;
+    let lastExactStatusAt = 0;
 
     const elements = {
         position: document.querySelector("#position"),
@@ -160,6 +162,11 @@
         return `${bookingBaseUrl}/api/v1/bookings?${params}`;
     }
 
+    function progressApi() {
+        const params = new URLSearchParams({ sequence: queueSequence });
+        return `/api/v1/waiting-events/${encodeURIComponent(eventId)}/queue/progress?${params}`;
+    }
+
     async function request(method, url) {
         const response = await fetch(url, { method });
         if (!response.ok) {
@@ -170,17 +177,23 @@
     }
 
     function render(queue) {
+        lastExactStatusAt = Date.now();
         elements.status.textContent = queue.status;
-        elements.activeCount.textContent = `${queue.activeCount.toLocaleString()}명`;
 
         if (queue.status === "WAITING") {
+            queueSequence = queue.sequence;
+            const peopleAhead = Math.max(0, queue.position - 1);
             elements.position.textContent = `${queue.position.toLocaleString()}번째로 대기 중입니다`;
             elements.description.textContent = "페이지를 새로고침하면 대기열 마지막으로 이동합니다.";
-            elements.peopleAhead.textContent = `${queue.peopleAhead.toLocaleString()}명`;
+            elements.peopleAhead.textContent = `${peopleAhead.toLocaleString()}명`;
             elements.nextPoll.textContent = `${queue.nextPollAfterSeconds}초 후`;
             const completed = Math.max(0, initialPosition - queue.position);
             elements.progressBar.style.width = `${Math.max(8, completed / initialPosition * 100)}%`;
-            schedulePoll(queue.nextPollAfterSeconds);
+            if (peopleAhead <= 100) {
+                schedulePoll(loadStatus, queue.nextPollAfterSeconds);
+            } else {
+                schedulePoll(loadProgress, queue.nextPollAfterSeconds);
+            }
             return;
         }
 
@@ -190,7 +203,7 @@
         if (queue.status === "ACTIVE") {
             clearTimeout(pollTimer);
             elements.position.textContent = "예매 서버에 입장했습니다";
-            elements.description.textContent = "가상 스레드에서 10초 동안 예매 작업을 처리합니다.";
+            elements.description.textContent = "가상 스레드에서 5초 동안 예매 작업을 처리합니다.";
             elements.nextPoll.textContent = "처리 중";
             startBooking(queue.admissionToken);
             return;
@@ -200,6 +213,30 @@
         elements.nextPoll.textContent = "종료";
         elements.position.textContent = queue.status === "COMPLETED" ? "작업이 완료되었습니다" : "대기가 종료되었습니다";
         elements.description.textContent = `현재 상태는 ${queue.status}입니다.`;
+    }
+
+    function renderProgress(progress) {
+        const peopleAhead = Math.max(0, queueSequence - progress.lastAdmittedSequence - 1);
+        const position = peopleAhead + 1;
+        elements.status.textContent = "WAITING";
+        elements.activeCount.textContent = `${progress.activeCount.toLocaleString()}명`;
+        elements.position.textContent = `약 ${position.toLocaleString()}번째로 대기 중입니다`;
+        elements.description.textContent = "공통 진행 상태를 기준으로 계산한 근사 순번입니다.";
+        elements.peopleAhead.textContent = `약 ${peopleAhead.toLocaleString()}명`;
+        const completed = Math.max(0, initialPosition - position);
+        elements.progressBar.style.width = `${Math.max(8, completed / initialPosition * 100)}%`;
+
+        const shouldCheckExactStatus = progress.lastAdmittedSequence >= queueSequence
+            || peopleAhead <= 100
+            || Date.now() - lastExactStatusAt >= 30_000;
+        if (shouldCheckExactStatus) {
+            elements.nextPoll.textContent = "정확한 상태 확인 중";
+            schedulePoll(loadStatus, 1);
+            return;
+        }
+
+        elements.nextPoll.textContent = `${progress.nextPollAfterSeconds}초 후`;
+        schedulePoll(loadProgress, progress.nextPollAfterSeconds);
     }
 
     async function startBooking(admissionToken) {
@@ -216,13 +253,13 @@
         }
     }
 
-    function schedulePoll(seconds) {
+    function schedulePoll(task, seconds) {
         clearTimeout(pollTimer);
         const baseDelay = document.hidden
             ? Math.max(15_000, seconds * 3_000)
             : Math.max(1_000, seconds * 1_000);
         const jitter = 0.8 + Math.random() * 0.4;
-        pollTimer = setTimeout(loadStatus, Math.round(baseDelay * jitter));
+        pollTimer = setTimeout(task, Math.round(baseDelay * jitter));
     }
 
     async function loadStatus() {
@@ -230,6 +267,18 @@
         statusRequestInFlight = true;
         try {
             render(await request("GET", api("/status")));
+        } catch (error) {
+            showError(error);
+        } finally {
+            statusRequestInFlight = false;
+        }
+    }
+
+    async function loadProgress() {
+        if (statusRequestInFlight) return;
+        statusRequestInFlight = true;
+        try {
+            renderProgress(await request("GET", progressApi()));
         } catch (error) {
             showError(error);
         } finally {

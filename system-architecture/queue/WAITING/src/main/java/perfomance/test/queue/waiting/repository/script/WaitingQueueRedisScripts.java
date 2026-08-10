@@ -18,14 +18,13 @@ public final class WaitingQueueRedisScripts {
             if currentState == 'ACTIVE' then
                 local expiry = redis.call('ZSCORE', KEYS[3], userId)
                 if expiry and tonumber(expiry) > nowMillis then
-                    redis.call('ZREM', KEYS[9], userId)
+                    redis.call('ZREM', KEYS[8], userId)
                     return 'ACTIVE|' .. sequence .. '|-1|' .. expiry .. '|' .. redis.call('ZCARD', KEYS[3]) .. '|0'
                 end
                 redis.call('ZREM', KEYS[3], userId)
                 redis.call('HDEL', KEYS[4], userId)
                 redis.call('HDEL', KEYS[5], userId)
                 redis.call('HDEL', KEYS[7], userId)
-                redis.call('HDEL', KEYS[8], userId)
             end
 
             if redis.call('HGET', KEYS[1], 'state') ~= 'OPEN' then
@@ -34,7 +33,7 @@ public final class WaitingQueueRedisScripts {
 
             if currentState == 'WAITING' then
                 redis.call('ZREM', KEYS[2], userId)
-                redis.call('ZREM', KEYS[9], userId)
+                redis.call('ZREM', KEYS[8], userId)
             end
 
             local maxWaitingUsers = tonumber(redis.call('HGET', KEYS[1], 'maxWaitingUsers'))
@@ -44,11 +43,10 @@ public final class WaitingQueueRedisScripts {
 
             sequence = redis.call('INCR', KEYS[6])
             redis.call('ZADD', KEYS[2], sequence, userId)
-            redis.call('ZADD', KEYS[9], nowMillis, userId)
+            redis.call('ZADD', KEYS[8], nowMillis, userId)
             redis.call('HSET', KEYS[4], userId, 'WAITING')
             redis.call('HSET', KEYS[5], userId, sequence)
             redis.call('HDEL', KEYS[7], userId)
-            redis.call('HDEL', KEYS[8], userId)
             local rank = redis.call('ZRANK', KEYS[2], userId)
             return 'WAITING|' .. sequence .. '|' .. rank .. '|0|' .. redis.call('ZCARD', KEYS[3]) .. '|1'
             """, String.class);
@@ -63,7 +61,7 @@ public final class WaitingQueueRedisScripts {
                 if rank then
                     local redisTime = redis.call('TIME')
                     local nowMillis = tonumber(redisTime[1]) * 1000 + math.floor(tonumber(redisTime[2]) / 1000)
-                    redis.call('ZADD', KEYS[9], nowMillis, userId)
+                    redis.call('ZADD', KEYS[8], nowMillis, userId)
                     return 'WAITING|' .. sequence .. '|' .. rank .. '|0|' .. redis.call('ZCARD', KEYS[3]) .. '|0'
                 end
             end
@@ -79,7 +77,6 @@ public final class WaitingQueueRedisScripts {
                 redis.call('HDEL', KEYS[4], userId)
                 redis.call('HDEL', KEYS[5], userId)
                 redis.call('HDEL', KEYS[7], userId)
-                redis.call('HDEL', KEYS[8], userId)
                 return 'EXPIRED|' .. sequence .. '|-1|0|' .. redis.call('ZCARD', KEYS[3]) .. '|0'
             end
 
@@ -97,7 +94,7 @@ public final class WaitingQueueRedisScripts {
 
             local waitingTimeoutSeconds = tonumber(redis.call('HGET', KEYS[1], 'waitingInactivityTimeoutSeconds') or '300')
             local staleWaiting = redis.call(
-                'ZRANGEBYSCORE', KEYS[9], '-inf', nowMillis - waitingTimeoutSeconds * 1000,
+                'ZRANGEBYSCORE', KEYS[8], '-inf', nowMillis - waitingTimeoutSeconds * 1000,
                 'LIMIT', 0, tonumber(ARGV[1])
             )
             for _, userId in ipairs(staleWaiting) do
@@ -106,7 +103,7 @@ public final class WaitingQueueRedisScripts {
                     redis.call('HDEL', KEYS[4], userId)
                     redis.call('HDEL', KEYS[5], userId)
                 end
-                redis.call('ZREM', KEYS[9], userId)
+                redis.call('ZREM', KEYS[8], userId)
             end
 
             local expired = redis.call('ZRANGEBYSCORE', KEYS[3], '-inf', nowMillis, 'LIMIT', 0, tonumber(ARGV[1]))
@@ -115,13 +112,12 @@ public final class WaitingQueueRedisScripts {
                 redis.call('HDEL', KEYS[4], userId)
                 redis.call('HDEL', KEYS[5], userId)
                 redis.call('HDEL', KEYS[6], userId)
-                redis.call('HDEL', KEYS[7], userId)
             end
 
             local rate = tonumber(redis.call('HGET', KEYS[1], 'admissionRatePerSecond'))
             local maxActive = tonumber(redis.call('HGET', KEYS[1], 'maxActiveUsers'))
-            local tokens = tonumber(redis.call('HGET', KEYS[8], 'tokens') or rate)
-            local lastRefill = tonumber(redis.call('HGET', KEYS[8], 'lastRefillMillis') or nowMillis)
+            local tokens = tonumber(redis.call('HGET', KEYS[7], 'tokens') or rate)
+            local lastRefill = tonumber(redis.call('HGET', KEYS[7], 'lastRefillMillis') or nowMillis)
             tokens = math.min(rate, tokens + math.max(0, nowMillis - lastRefill) * rate / 1000)
 
             local available = math.min(
@@ -130,8 +126,8 @@ public final class WaitingQueueRedisScripts {
                 tonumber(ARGV[2])
             )
             if available <= 0 then
-                redis.call('HSET', KEYS[8], 'tokens', tokens, 'lastRefillMillis', nowMillis)
-                redis.call('EXPIRE', KEYS[8], 2)
+                redis.call('HSET', KEYS[7], 'tokens', tokens, 'lastRefillMillis', nowMillis)
+                redis.call('EXPIRE', KEYS[7], 2)
                 return 0
             end
 
@@ -147,7 +143,6 @@ public final class WaitingQueueRedisScripts {
             local activeEntries = {}
             local stateEntries = {}
             local activeStartedEntries = {}
-            local activeLastRequestEntries = {}
 
             for index = 1, #popped, 2 do
                 local userId = popped[index]
@@ -158,68 +153,20 @@ public final class WaitingQueueRedisScripts {
                 table.insert(stateEntries, 'ACTIVE')
                 table.insert(activeStartedEntries, userId)
                 table.insert(activeStartedEntries, nowMillis)
-                table.insert(activeLastRequestEntries, userId)
-                table.insert(activeLastRequestEntries, nowMillis)
             end
 
             if admittedCount > 0 then
-                redis.call('ZREM', KEYS[9], unpack(admittedUsers))
+                redis.call('ZREM', KEYS[8], unpack(admittedUsers))
                 redis.call('ZADD', KEYS[3], unpack(activeEntries))
                 redis.call('HSET', KEYS[4], unpack(stateEntries))
                 redis.call('HSET', KEYS[6], unpack(activeStartedEntries))
-                redis.call('HSET', KEYS[7], unpack(activeLastRequestEntries))
+                redis.call('HSET', KEYS[1], 'lastAdmittedSequence', popped[#popped])
             end
 
-            redis.call('HSET', KEYS[8], 'tokens', tokens - admittedCount, 'lastRefillMillis', nowMillis)
-            redis.call('EXPIRE', KEYS[8], 2)
+            redis.call('HSET', KEYS[7], 'tokens', tokens - admittedCount, 'lastRefillMillis', nowMillis)
+            redis.call('EXPIRE', KEYS[7], 2)
             return admittedCount
             """, Long.class);
-
-    public static final DefaultRedisScript<String> RECORD_ACTIVITY = new DefaultRedisScript<>("""
-            local userId = ARGV[1]
-            local expectedSequence = ARGV[2]
-            local currentState = redis.call('HGET', KEYS[4], userId)
-            local currentSequence = redis.call('HGET', KEYS[5], userId)
-
-            if not currentState or not currentSequence then
-                return 'NOT_FOUND|0|-1|0|' .. redis.call('ZCARD', KEYS[3]) .. '|0'
-            end
-            if currentState ~= 'ACTIVE' or tostring(currentSequence) ~= tostring(expectedSequence) then
-                return 'ADMISSION_INVALID|' .. currentSequence .. '|-1|0|' .. redis.call('ZCARD', KEYS[3]) .. '|0'
-            end
-
-            local redisTime = redis.call('TIME')
-            local nowMillis = tonumber(redisTime[1]) * 1000 + math.floor(tonumber(redisTime[2]) / 1000)
-            local currentExpiry = redis.call('ZSCORE', KEYS[3], userId)
-            local startedAt = tonumber(redis.call('HGET', KEYS[7], userId) or '0')
-            if not currentExpiry or tonumber(currentExpiry) <= nowMillis or startedAt <= 0 then
-                redis.call('ZREM', KEYS[3], userId)
-                redis.call('HDEL', KEYS[4], userId)
-                redis.call('HDEL', KEYS[5], userId)
-                redis.call('HDEL', KEYS[7], userId)
-                redis.call('HDEL', KEYS[8], userId)
-                return 'EXPIRED|' .. currentSequence .. '|-1|0|' .. redis.call('ZCARD', KEYS[3]) .. '|0'
-            end
-
-            local maxActiveDurationSeconds = tonumber(redis.call('HGET', KEYS[1], 'maxActiveDurationSeconds'))
-            local activeInactivityTimeoutSeconds = tonumber(
-                redis.call('HGET', KEYS[1], 'activeInactivityTimeoutSeconds') or maxActiveDurationSeconds
-            )
-            local hardExpiresAt = startedAt + maxActiveDurationSeconds * 1000
-            local expiresAt = math.min(hardExpiresAt, nowMillis + activeInactivityTimeoutSeconds * 1000)
-            if expiresAt <= nowMillis then
-                redis.call('ZREM', KEYS[3], userId)
-                redis.call('HDEL', KEYS[4], userId)
-                redis.call('HDEL', KEYS[5], userId)
-                redis.call('HDEL', KEYS[7], userId)
-                redis.call('HDEL', KEYS[8], userId)
-                return 'EXPIRED|' .. currentSequence .. '|-1|0|' .. redis.call('ZCARD', KEYS[3]) .. '|0'
-            end
-
-            redis.call('ZADD', KEYS[3], expiresAt, userId)
-            redis.call('HSET', KEYS[8], userId, nowMillis)
-            return 'ACTIVE|' .. currentSequence .. '|-1|' .. expiresAt .. '|' .. redis.call('ZCARD', KEYS[3]) .. '|0'
-            """, String.class);
 
     public static final DefaultRedisScript<String> RELEASE = new DefaultRedisScript<>("""
             local userId = ARGV[1]
@@ -241,8 +188,7 @@ public final class WaitingQueueRedisScripts {
             redis.call('HDEL', KEYS[4], userId)
             redis.call('HDEL', KEYS[5], userId)
             redis.call('HDEL', KEYS[7], userId)
-            redis.call('HDEL', KEYS[8], userId)
-            redis.call('ZREM', KEYS[9], userId)
+            redis.call('ZREM', KEYS[8], userId)
             return 'COMPLETED|' .. currentSequence .. '|-1|0|' .. redis.call('ZCARD', KEYS[3]) .. '|0'
             """, String.class);
 
@@ -255,7 +201,6 @@ public final class WaitingQueueRedisScripts {
                 redis.call('HDEL', KEYS[2], userId)
                 redis.call('HDEL', KEYS[3], userId)
                 redis.call('HDEL', KEYS[4], userId)
-                redis.call('HDEL', KEYS[5], userId)
             end
             return #expired
             """, Long.class);
