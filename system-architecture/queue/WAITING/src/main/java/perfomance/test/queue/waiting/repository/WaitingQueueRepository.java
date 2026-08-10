@@ -1,0 +1,122 @@
+package perfomance.test.queue.waiting.repository;
+
+import java.util.List;
+
+import perfomance.test.queue.waiting.repository.script.WaitingQueueRedisScripts;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Mono;
+
+@Repository
+public class WaitingQueueRepository {
+
+    private final ReactiveStringRedisTemplate redisTemplate;
+
+    public WaitingQueueRepository(ReactiveStringRedisTemplate redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
+
+    public Mono<QueueCommandResult> register(String eventId, String userId) {
+        return executeResult(WaitingQueueRedisScripts.REGISTER, queueKeys(eventId), List.of(userId));
+    }
+
+    public Mono<QueueCommandResult> findStatus(String eventId, String userId) {
+        return executeResult(WaitingQueueRedisScripts.STATUS, queueKeys(eventId), List.of(userId));
+    }
+
+    public Mono<Long> admit(String eventId, int expirationBatchSize, int admissionBatchSize) {
+        return redisTemplate.execute(
+                WaitingQueueRedisScripts.ADMIT,
+                List.of(
+                        WaitingQueueRedisKeys.meta(eventId),
+                        WaitingQueueRedisKeys.waiting(eventId),
+                        WaitingQueueRedisKeys.active(eventId),
+                        WaitingQueueRedisKeys.state(eventId),
+                        WaitingQueueRedisKeys.userSequence(eventId),
+                        WaitingQueueRedisKeys.activeStarted(eventId),
+                        WaitingQueueRedisKeys.activeLastRequest(eventId),
+                        WaitingQueueRedisKeys.admissionBudget(eventId),
+                        WaitingQueueRedisKeys.waitingLastSeen(eventId)
+                ),
+                List.of(
+                        Integer.toString(expirationBatchSize),
+                        Integer.toString(admissionBatchSize)
+                )
+        )
+                .next()
+                .defaultIfEmpty(0L);
+    }
+
+    public Mono<QueueCommandResult> release(String eventId, String userId, long sequence) {
+        return executeResult(
+                WaitingQueueRedisScripts.RELEASE,
+                queueKeys(eventId),
+                List.of(userId, Long.toString(sequence))
+        );
+    }
+
+    public Mono<QueueCommandResult> recordActivity(String eventId, String userId, long sequence) {
+        return executeResult(
+                WaitingQueueRedisScripts.RECORD_ACTIVITY,
+                queueKeys(eventId),
+                List.of(userId, Long.toString(sequence))
+        );
+    }
+
+    public Mono<Long> expireActive(String eventId, int batchSize) {
+        return redisTemplate.execute(
+                        WaitingQueueRedisScripts.EXPIRE,
+                        List.of(
+                                WaitingQueueRedisKeys.active(eventId),
+                                WaitingQueueRedisKeys.state(eventId),
+                                WaitingQueueRedisKeys.userSequence(eventId),
+                                WaitingQueueRedisKeys.activeStarted(eventId),
+                                WaitingQueueRedisKeys.activeLastRequest(eventId)
+                        ),
+                        List.of(Integer.toString(batchSize))
+                )
+                .next()
+                .defaultIfEmpty(0L);
+    }
+
+    private Mono<QueueCommandResult> executeResult(
+            DefaultRedisScript<String> script,
+            List<String> keys,
+            List<String> arguments
+    ) {
+        return redisTemplate.execute(script, keys, arguments)
+                .next()
+                .switchIfEmpty(Mono.error(new IllegalStateException("Redis returned no queue result.")))
+                .map(this::parseResult);
+    }
+
+    private QueueCommandResult parseResult(String raw) {
+        String[] values = raw.split("\\|", 6);
+        if (values.length != 6) {
+            throw new IllegalStateException("Unexpected Redis queue result: " + raw);
+        }
+        return new QueueCommandResult(
+                values[0],
+                Long.parseLong(values[1]),
+                Long.parseLong(values[2]),
+                Long.parseLong(values[3]),
+                Long.parseLong(values[4]),
+                "1".equals(values[5])
+        );
+    }
+
+    private List<String> queueKeys(String eventId) {
+        return List.of(
+                WaitingQueueRedisKeys.meta(eventId),
+                WaitingQueueRedisKeys.waiting(eventId),
+                WaitingQueueRedisKeys.active(eventId),
+                WaitingQueueRedisKeys.state(eventId),
+                WaitingQueueRedisKeys.userSequence(eventId),
+                WaitingQueueRedisKeys.sequence(eventId),
+                WaitingQueueRedisKeys.activeStarted(eventId),
+                WaitingQueueRedisKeys.activeLastRequest(eventId),
+                WaitingQueueRedisKeys.waitingLastSeen(eventId)
+        );
+    }
+}

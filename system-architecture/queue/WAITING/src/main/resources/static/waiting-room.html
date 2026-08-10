@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>티켓 예매 대기열</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: Pretendard, "Noto Sans KR", system-ui, sans-serif;
+            background: #f4f6fa;
+            color: #182033;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        main {
+            width: min(560px, 100%);
+            padding: 44px;
+            border-radius: 24px;
+            background: #fff;
+            box-shadow: 0 24px 70px rgba(37, 50, 80, 0.14);
+            text-align: center;
+        }
+
+        .badge {
+            display: inline-flex;
+            padding: 7px 13px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #4658d9;
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        h1 {
+            margin: 22px 0 10px;
+            font-size: 24px;
+        }
+
+        #position {
+            margin: 28px 0 12px;
+            color: #3247d6;
+            font-size: clamp(32px, 8vw, 52px);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+        }
+
+        #description {
+            min-height: 48px;
+            margin: 0;
+            color: #667085;
+            line-height: 1.6;
+        }
+
+        .progress {
+            height: 10px;
+            margin: 30px 0;
+            overflow: hidden;
+            border-radius: 999px;
+            background: #edf0f5;
+        }
+
+        .progress > div {
+            width: 8%;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #5267f5, #8c5cf5);
+            transition: width 0.4s ease;
+        }
+
+        dl {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 0;
+        }
+
+        dl > div {
+            padding: 16px;
+            border-radius: 14px;
+            background: #f7f8fb;
+        }
+
+        dt { color: #7b8498; font-size: 13px; }
+        dd { margin: 7px 0 0; font-weight: 750; }
+
+        button {
+            width: 100%;
+            margin-top: 28px;
+            padding: 15px;
+            border: 0;
+            border-radius: 13px;
+            background: #2639c7;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 750;
+            cursor: pointer;
+        }
+
+        button:disabled { opacity: 0.55; cursor: wait; }
+        .error { color: #d92d20 !important; }
+    </style>
+</head>
+<body>
+<main>
+    <span class="badge">실시간 대기열</span>
+    <h1>티켓 예매 접속을 기다리고 있습니다</h1>
+    <div id="position">대기열 연결 전</div>
+    <p id="description">아래 버튼을 누르면 현재 순번을 확인합니다.</p>
+
+    <div class="progress"><div id="progressBar"></div></div>
+
+    <dl>
+        <div><dt>앞에 남은 인원</dt><dd id="peopleAhead">-</dd></div>
+        <div><dt>현재 입장 인원</dt><dd id="activeCount">-</dd></div>
+        <div><dt>현재 상태</dt><dd id="status">-</dd></div>
+        <div><dt>다음 갱신</dt><dd id="nextPoll">-</dd></div>
+    </dl>
+
+    <button id="joinButton" type="button">대기열 입장하기</button>
+</main>
+
+<script>
+    const query = new URLSearchParams(location.search);
+    const eventId = query.get("eventId") || "concert-demo";
+    const userId = query.get("userId") || "viewer-5000";
+    const bookingBaseUrl = query.get("bookingBaseUrl") || `http://${location.hostname}:8082`;
+    const initialPosition = 5000;
+    let pollTimer;
+    let statusRequestInFlight = false;
+    let bookingStarted = false;
+
+    const elements = {
+        position: document.querySelector("#position"),
+        description: document.querySelector("#description"),
+        peopleAhead: document.querySelector("#peopleAhead"),
+        activeCount: document.querySelector("#activeCount"),
+        status: document.querySelector("#status"),
+        nextPoll: document.querySelector("#nextPoll"),
+        progressBar: document.querySelector("#progressBar"),
+        joinButton: document.querySelector("#joinButton")
+    };
+
+    function api(path) {
+        const params = new URLSearchParams({ userId, authority: "user" });
+        return `/api/v1/waiting-events/${encodeURIComponent(eventId)}/queue${path}?${params}`;
+    }
+
+    function bookingApi(admissionToken) {
+        const params = new URLSearchParams({ authority: "user", admissionToken });
+        return `${bookingBaseUrl}/api/v1/bookings?${params}`;
+    }
+
+    async function request(method, url) {
+        const response = await fetch(url, { method });
+        if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.detail || body.message || `요청 실패 (${response.status})`);
+        }
+        return response.json();
+    }
+
+    function render(queue) {
+        elements.status.textContent = queue.status;
+        elements.activeCount.textContent = `${queue.activeCount.toLocaleString()}명`;
+
+        if (queue.status === "WAITING") {
+            elements.position.textContent = `${queue.position.toLocaleString()}번째로 대기 중입니다`;
+            elements.description.textContent = "페이지를 새로고침하면 대기열 마지막으로 이동합니다.";
+            elements.peopleAhead.textContent = `${queue.peopleAhead.toLocaleString()}명`;
+            elements.nextPoll.textContent = `${queue.nextPollAfterSeconds}초 후`;
+            const completed = Math.max(0, initialPosition - queue.position);
+            elements.progressBar.style.width = `${Math.max(8, completed / initialPosition * 100)}%`;
+            schedulePoll(queue.nextPollAfterSeconds);
+            return;
+        }
+
+        elements.peopleAhead.textContent = "0명";
+        elements.progressBar.style.width = "100%";
+
+        if (queue.status === "ACTIVE") {
+            clearTimeout(pollTimer);
+            elements.position.textContent = "예매 서버에 입장했습니다";
+            elements.description.textContent = "가상 스레드에서 10초 동안 예매 작업을 처리합니다.";
+            elements.nextPoll.textContent = "처리 중";
+            startBooking(queue.admissionToken);
+            return;
+        }
+
+        clearTimeout(pollTimer);
+        elements.nextPoll.textContent = "종료";
+        elements.position.textContent = queue.status === "COMPLETED" ? "작업이 완료되었습니다" : "대기가 종료되었습니다";
+        elements.description.textContent = `현재 상태는 ${queue.status}입니다.`;
+    }
+
+    async function startBooking(admissionToken) {
+        if (bookingStarted) return;
+        bookingStarted = true;
+        try {
+            const booking = await request("POST", bookingApi(admissionToken));
+            elements.status.textContent = booking.status;
+            elements.position.textContent = "예매 작업이 완료되었습니다";
+            elements.description.textContent = "슬롯 반환은 BOOKING 서버에서 비동기로 요청했습니다.";
+            elements.nextPoll.textContent = "종료";
+        } catch (error) {
+            showError(error);
+        }
+    }
+
+    function schedulePoll(seconds) {
+        clearTimeout(pollTimer);
+        const baseDelay = document.hidden
+            ? Math.max(15_000, seconds * 3_000)
+            : Math.max(1_000, seconds * 1_000);
+        const jitter = 0.8 + Math.random() * 0.4;
+        pollTimer = setTimeout(loadStatus, Math.round(baseDelay * jitter));
+    }
+
+    async function loadStatus() {
+        if (statusRequestInFlight) return;
+        statusRequestInFlight = true;
+        try {
+            render(await request("GET", api("/status")));
+        } catch (error) {
+            showError(error);
+        } finally {
+            statusRequestInFlight = false;
+        }
+    }
+
+    async function joinQueue() {
+        elements.joinButton.disabled = true;
+        elements.joinButton.textContent = "대기열 입장 중...";
+        try {
+            const registration = await request("POST", api(""));
+            render(registration.queue);
+            elements.joinButton.hidden = true;
+        } catch (error) {
+            showError(error);
+            elements.joinButton.disabled = false;
+            elements.joinButton.textContent = "다시 시도하기";
+        }
+    }
+
+    function showError(error) {
+        clearTimeout(pollTimer);
+        elements.position.textContent = "대기열 연결 실패";
+        elements.description.textContent = error.message;
+        elements.description.classList.add("error");
+    }
+
+    elements.joinButton.addEventListener("click", joinQueue);
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && elements.status.textContent === "WAITING") loadStatus();
+    });
+    if (query.get("autoStart") !== "false") joinQueue();
+</script>
+</body>
+</html>
