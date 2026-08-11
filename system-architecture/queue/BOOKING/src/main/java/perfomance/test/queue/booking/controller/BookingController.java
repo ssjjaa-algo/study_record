@@ -34,11 +34,10 @@ public class BookingController {
     public ResponseEntity<BookingResponse> status(
             @RequestParam String eventId,
             @RequestParam String userId,
-            @RequestParam long sequence,
             @RequestParam String authority
     ) {
         return ResponseEntity.ok(BookingResponse.from(
-                service.find(eventId, userId, sequence, authority)
+                service.find(eventId, userId, authority)
         ));
     }
 }

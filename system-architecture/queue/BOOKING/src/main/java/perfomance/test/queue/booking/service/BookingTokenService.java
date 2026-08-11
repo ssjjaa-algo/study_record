@@ -1,7 +1,6 @@
 package perfomance.test.queue.booking.service;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.Base64;
 
 import perfomance.test.queue.booking.domain.AdmissionTokenClaims;
@@ -21,20 +20,11 @@ public class BookingTokenService {
                     Base64.getUrlDecoder().decode(admissionToken),
                     StandardCharsets.UTF_8
             );
-            String[] values = decoded.split("\\|", 4);
-            if (values.length != 4) {
+            String[] values = decoded.split("\\|", 2);
+            if (values.length != 2 || values[0].isBlank() || values[1].isBlank()) {
                 throw invalidToken();
             }
-            AdmissionTokenClaims claims = new AdmissionTokenClaims(
-                    values[0],
-                    values[1],
-                    Long.parseLong(values[2]),
-                    Instant.ofEpochMilli(Long.parseLong(values[3]))
-            );
-            if (claims.expiresAt().isBefore(Instant.now())) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admission token has expired.");
-            }
-            return claims;
+            return new AdmissionTokenClaims(values[0], values[1]);
         } catch (IllegalArgumentException exception) {
             throw invalidToken();
         }

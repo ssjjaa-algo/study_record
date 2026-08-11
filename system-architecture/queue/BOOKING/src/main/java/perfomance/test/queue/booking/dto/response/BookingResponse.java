@@ -8,7 +8,6 @@ import perfomance.test.queue.booking.domain.BookingStatus;
 public record BookingResponse(
         String eventId,
         String userId,
-        long sequence,
         BookingStatus status,
         Instant startedAt,
         Instant completedAt
@@ -17,7 +16,6 @@ public record BookingResponse(
         return new BookingResponse(
                 booking.eventId(),
                 booking.userId(),
-                booking.sequence(),
                 booking.status(),
                 booking.startedAt(),
                 booking.completedAt()

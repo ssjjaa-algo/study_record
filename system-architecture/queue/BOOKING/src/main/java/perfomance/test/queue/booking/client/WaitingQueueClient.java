@@ -26,17 +26,15 @@ public class WaitingQueueClient {
                     .uri(uriBuilder -> uriBuilder
                             .path("/api/v1/waiting-events/{eventId}/queue/release")
                             .queryParam("userId", claims.userId())
-                            .queryParam("sequence", claims.sequence())
                             .queryParam("authority", "user")
                             .build(claims.eventId()))
                     .retrieve()
                     .toBodilessEntity();
         } catch (RuntimeException exception) {
             log.error(
-                    "Asynchronous active slot release failed. eventId={}, userId={}, sequence={}",
+                    "Asynchronous active slot release failed. eventId={}, userId={}",
                     claims.eventId(),
                     claims.userId(),
-                    claims.sequence(),
                     exception
             );
         }

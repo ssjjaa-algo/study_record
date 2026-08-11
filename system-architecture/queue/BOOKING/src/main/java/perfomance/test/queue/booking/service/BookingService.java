@@ -38,7 +38,7 @@ public class BookingService {
     public Booking start(String authority, String admissionToken) {
         validateAuthority(authority);
         AdmissionTokenClaims claims = tokenService.decode(admissionToken);
-        Booking existing = repository.find(claims.eventId(), claims.userId(), claims.sequence()).orElse(null);
+        Booking existing = repository.find(claims.eventId(), claims.userId()).orElse(null);
         if (existing != null) {
             return existing;
         }
@@ -50,10 +50,9 @@ public class BookingService {
 
         try {
             log.info(
-                    "Booking processing started. eventId={}, userId={}, sequence={}, virtualThread={}",
+                    "Booking processing started. eventId={}, userId={}, virtualThread={}",
                     claims.eventId(),
                     claims.userId(),
-                    claims.sequence(),
                     Thread.currentThread().isVirtual()
             );
             Thread.sleep(processingDuration);
@@ -67,9 +66,9 @@ public class BookingService {
         }
     }
 
-    public Booking find(String eventId, String userId, long sequence, String authority) {
+    public Booking find(String eventId, String userId, String authority) {
         validateAuthority(authority);
-        return repository.find(eventId, userId, sequence)
+        return repository.find(eventId, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found."));
     }
 

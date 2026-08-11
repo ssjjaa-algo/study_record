@@ -18,12 +18,11 @@ public class BookingRepository {
 
     public BookingStart start(AdmissionTokenClaims claims) {
         AtomicBoolean newlyStarted = new AtomicBoolean(false);
-        Booking booking = bookings.computeIfAbsent(key(claims.eventId(), claims.userId(), claims.sequence()), ignored -> {
+        Booking booking = bookings.computeIfAbsent(key(claims.eventId(), claims.userId()), ignored -> {
             newlyStarted.set(true);
             return new Booking(
                     claims.eventId(),
                     claims.userId(),
-                    claims.sequence(),
                     BookingStatus.PROCESSING,
                     Instant.now(),
                     null
@@ -40,19 +39,18 @@ public class BookingRepository {
         return updateStatus(claims, BookingStatus.FAILED);
     }
 
-    public Optional<Booking> find(String eventId, String userId, long sequence) {
-        return Optional.ofNullable(bookings.get(key(eventId, userId, sequence)));
+    public Optional<Booking> find(String eventId, String userId) {
+        return Optional.ofNullable(bookings.get(key(eventId, userId)));
     }
 
     private Booking updateStatus(AdmissionTokenClaims claims, BookingStatus status) {
-        return bookings.compute(key(claims.eventId(), claims.userId(), claims.sequence()), (ignored, current) -> {
+        return bookings.compute(key(claims.eventId(), claims.userId()), (ignored, current) -> {
             if (current == null) {
                 throw new IllegalStateException("Booking does not exist.");
             }
             return new Booking(
                     current.eventId(),
                     current.userId(),
-                    current.sequence(),
                     status,
                     current.startedAt(),
                     Instant.now()
@@ -60,8 +58,8 @@ public class BookingRepository {
         });
     }
 
-    private String key(String eventId, String userId, long sequence) {
-        return eventId + ":" + userId + ":" + sequence;
+    private String key(String eventId, String userId) {
+        return eventId + ":" + userId;
     }
 
     public record BookingStart(Booking booking, boolean newlyStarted) {
