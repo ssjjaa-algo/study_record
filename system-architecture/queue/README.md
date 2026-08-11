@@ -1,8 +1,10 @@
-# Ticket Waiting Queue
+# Redis Ticket Waiting Queue
 
-티켓 예매 서버가 감당할 수 있는 범위만 사용자를 입장시키기 위한 Redis 기반 대기열이다. WAITING 서버는 순번과 입장 상태를 관리하고, BOOKING 서버는 ACTIVE 권한을 받은 요청만 처리한다.
+티켓 예매 서버가 처리할 수 있는 범위 안에서만 사용자를 입장시키기 위한 Redis 기반 대기열이다.
 
-## 1. 아키텍처
+이 프로젝트에서는 대기 순서, 입장 상태, 입장 인원 제한만 다룬다. 실제 좌석 선택, 결제, 티켓 정합성은 구현하지 않으며 BOOKING 서버는 요청을 받은 뒤 5초 후 완료되는 테스트 시나리오로 동작한다.
+
+## 1. 다이어그램
 
 ```mermaid
 sequenceDiagram
@@ -15,196 +17,114 @@ sequenceDiagram
 
     Browser->>Waiting: 대기열 등록
     Waiting->>Redis: REGISTER Lua
-    Redis-->>Browser: WAITING + 순번
+    Redis-->>Waiting: WAITING + sequence + position
+    Waiting-->>Browser: 현재 대기 순번
 
-    loop 순번 확인 polling
-        Browser->>Waiting: 상태 조회
+    loop 대기 중
+        Browser->>Waiting: progress 조회
+        Waiting-->>Browser: 근사 순번
+
+        Browser->>Waiting: 입장 임박 시 status 조회
         Waiting->>Redis: STATUS Lua
-        Redis-->>Browser: WAITING + 현재 순번
+        Redis-->>Waiting: WAITING 또는 ACTIVE
+        Waiting-->>Browser: 정확한 상태
     end
 
-    loop 설정된 주기마다
-        Worker->>Redis: 분산 lease 획득 시도
+    loop 500ms마다 실행
+        Worker->>Redis: Admission lease 획득 시도
         Worker->>Redis: ADMIT Lua
-        Redis->>Redis: 입장량·빈 슬롯 계산
+        Redis->>Redis: 빈 ACTIVE 슬롯 계산
+        Redis->>Redis: ZPOPMIN으로 WAITING 선두 추출
         Redis->>Redis: WAITING → ACTIVE
     end
 
-    Browser->>Waiting: 상태 조회
+    Browser->>Waiting: status 조회
     Waiting->>Redis: ACTIVE 확인
     Waiting-->>Browser: ACTIVE + admissionToken
 
-    Browser->>Booking: 자동 진입 + admissionToken
-    Booking->>Waiting: ACTIVE 활동 기록
-    Waiting->>Redis: RECORD_ACTIVITY Lua
-    Booking->>Booking: 가상 스레드에서 10초 처리
+    Browser->>Booking: BOOKING API 자동 호출
+    Booking->>Booking: 5초 대기
     Booking-->>Browser: COMPLETED
 
-    Booking-->>Waiting: 비동기 release
+    Booking-->>Waiting: 비동기 release 요청
     Waiting->>Redis: RELEASE Lua
-    Waiting->>Redis: ACTIVE 슬롯 반환
-    Waiting->>Redis: 다음 WAITING 사용자 입장
+    Redis->>Redis: ACTIVE 사용자 삭제
+
+    Note over Worker,Redis: 다음 Admission Worker 실행 주기에 빈 슬롯 충원
 ```
-
-### 컴포넌트 역할
-
-| 컴포넌트 | 역할 |
-|---|---|
-| 브라우저 | 대기열 등록, 순번 polling, ACTIVE 감지 후 BOOKING 자동 진입 |
-| WAITING 서버 | 대기열 API, Admission Worker, 토큰 발급, 슬롯 반환 처리 |
-| Redis | 모든 분산 서버가 공유하는 WAITING·ACTIVE 상태와 입장량 저장 |
-| Admission Worker | 입장 가능한 인원을 계산하고 FIFO 순서로 ACTIVE 전환 |
-| BOOKING 서버 | admissionToken 검증, 테스트용 10초 처리, 완료 후 비동기 슬롯 반환 |
-
-WAITING 서버가 여러 대이더라도 사용자 상태는 Redis에 저장한다. Admission Worker 또한 모든 서버에서 실행되지만 이벤트별 분산 lease를 획득한 서버만 해당 시점의 ADMIT 작업을 수행한다.
 
 ## 2. 기술 선택
 
-### 2.1 대기열: Redis
+### Redis
 
-이 시스템의 대기열은 메시지를 한 번 소비하는 구조가 아니라 다음 상태를 반복해서 조회하고 변경하는 공유 상태다.
+사용자가 자신의 현재 순번을 반복해서 확인해야 하고, WAITING과 ACTIVE 상태도 계속 변경된다.
 
-- 사용자의 정확한 현재 순번
-- WAITING과 ACTIVE 상태
-- 대기열과 ACTIVE 영역의 크기
-- 초당 입장 가능 인원
-- 사용자별 만료 시각
-- 중복 등록과 중복 처리 여부
+Redis Sorted Set은 sequence를 score로 사용하여 FIFO 순서를 유지할 수 있다. 사용자의 현재 순번은 `ZRANK`로 확인할 수 있고, 대기열 앞쪽 사용자는 `ZPOPMIN`으로 추출할 수 있다.
 
-Redis는 Sorted Set과 Lua를 통해 이 요구사항을 한 저장소에서 처리할 수 있다.
+Redis Lua 스크립트를 사용하면 전반적인 대기열 작업을 하나의 원자적 작업으로 처리할 수 있다.
 
-| 후보 | 장점 | 이 대기열에서의 한계 |
-|---|---|---|
-| 서버 로컬 메모리 | 가장 단순하고 빠름 | 서버별 상태가 달라지고 장애·재시작 시 유실됨 |
-| RDBMS | 영속성과 트랜잭션 제공 | 대량 순번 조회와 잦은 상태 변경에서 락 경합과 DB 부하가 커짐 |
-| Kafka | 높은 처리량, 내구성 있는 이벤트 로그, 재처리 | 현재 순번·ACTIVE 수·중복 상태를 즉시 조회하기 어려워 별도 상태 저장소가 필요함 |
-| RabbitMQ 등 메시지 큐 | 비동기 작업 전달과 소비자 부하 조절에 적합 | 메시지 소비 중심이므로 사용자별 현재 순번과 상태 조회에 적합하지 않음 |
-| Redis | 빠른 상태 조회, Sorted Set 순위, 원자적 Lua, 분산 서버 공유 | 메모리 용량 관리가 필요하고 긴 Lua 실행은 Redis 전체 요청을 지연시킬 수 있음 |
+Kafka는 이벤트 전달과 재처리에 적합하지만 사용자의 현재 순번이나 ACTIVE 여부를 즉시 조회하기는 어렵다. 다만 메시지 유실 측면에서 Kafka에 메시지를 보관하고, Consumer가 Redis에 `ZADD` 하는 아키텍처를 구상할 수 있다. 그렇다면 Kafka는 대기열이 아닌 메시지 보관 역할을 하게 된다.
 
-따라서 현재 상태를 빠르게 조회·변경해야 하는 대기열에는 Redis를 사용한다. 예매 완료 이벤트처럼 재처리와 전달 보장이 중요한 비동기 통신은 Kafka 같은 메시지 큐를 사용하는 것이 적합하다.
+### WebFlux
 
-#### Redis 자료구조
+요청마다 플랫폼 스레드를 점유하지 않도록 Spring WebFlux와 Reactive Redis를 사용한다. 대용량 트래픽에서는 Thread Per Request 모델보다 요청을 효율적으로 처리할 수 있다.
 
-| 데이터 | 자료구조 | 저장 내용 |
-|---|---|---|
-| WAITING | ZSET | score에 증가하는 sequence를 저장하여 FIFO 유지 |
-| WAITING lastSeen | ZSET | score에 마지막 상태 조회 시각 저장 |
-| ACTIVE | ZSET | score에 ACTIVE 만료 시각 저장 |
-| 사용자 상태 | HASH | 사용자별 `WAITING` 또는 `ACTIVE` |
-| 사용자 sequence | HASH | 재등록·이전 입장 권한 구분 |
-| ACTIVE 시작·마지막 요청 | HASH | 유휴 만료와 절대 사용 시간 계산 |
-| Admission budget | HASH | 현재 tokens와 마지막 충전 시각 |
-| Worker lease | STRING | 해당 시점에 Admission을 실행할 서버 선택 |
+## 3. 대기열 동작
 
-FIFO score에는 timestamp 대신 Redis `INCR`로 발급한 sequence를 사용한다. 동일 밀리초에 여러 요청이 들어와도 score가 충돌하지 않고 완전한 순서를 만들 수 있기 때문이다.
-
-### 2.2 WebFlux
-
-WAITING 서버는 대규모 등록 요청과 브라우저 상태 polling처럼 Redis I/O를 기다리는 요청이 많다. 요청마다 플랫폼 스레드를 점유하지 않도록 Spring WebFlux와 Reactive Redis를 사용한다.
-
-```text
-HTTP 요청
-→ Mono 파이프라인 생성
-→ Reactive Redis 요청
-→ 스레드를 점유하지 않고 Redis 응답 대기
-→ 결과 변환
-→ HTTP 응답
-```
-
-`Mono<T>`는 최대 한 개의 결과 또는 에러를 비동기로 전달한다.
-
-- `map`: 현재 값을 다른 일반 값으로 변환한다.
-- `flatMap`: 현재 값을 이용해 다음 `Mono` 작업을 연결한다.
-- `Mono.error`: 파이프라인에 오류를 전달한다.
-- WebFlux가 Controller에서 반환된 `Mono`를 구독하고 응답을 완성한다.
-
-WebFlux는 Redis의 처리 성능 자체를 높이지 않는다. 많은 요청이 Redis 응답을 기다리는 동안 WAITING 서버의 스레드 점유를 줄이는 역할이다. Lua가 너무 오래 실행되면 Redis가 병목이 되므로 Lua의 반복 명령과 배치 크기는 별도로 관리해야 한다.
-
-BOOKING 서버는 현재 테스트에서 요청 하나가 10초 동안 대기하는 단순한 동기 흐름이므로 Spring MVC와 Java 가상 스레드를 사용한다.
-
-## 3. 대기열 작동 방식
+(실제로 테스트를 시작하기 전에 이벤트 생성 API를 한 번 호출해야 합니다.)
 
 ### 3.1 대기열 등록
 
-브라우저가 WAITING 서버의 등록 API를 호출한다.
+- 이벤트가 존재하는지 확인
+- 이미 ACTIVE인지 확인하고, ACTIVE라면 마지막 접근 시각 갱신
+- 이벤트가 `OPEN` 상태인지 확인
+- 기존 WAITING 등록이 있으면 제거
+- 대기열 상한 확인
+- `nextSequence` 증가 및 sequence 발급
+- WAITING ZSET에 `sequence`, `userId` 저장
+- `waiting-last-seen`에 현재 접근 시각 저장
+- `ZRANK`로 현재 순번 계산 후 반환
 
-```text
-POST /api/v1/waiting-events/{eventId}/queue
-```
+### 3.2 입장열 입장
 
-REGISTER Lua는 다음 작업을 원자적으로 처리한다.
+Admission Worker가 **500ms**마다 실행되며 한 번에 최대 50명을 ACTIVE로 이동시킨다. 입장 수는 실제로 성능 지표에 따라 설정해야 하며, 필요하다면 스케줄링 횟수를 늘려 평탄화할 수 있다.
 
-1. 이벤트 존재 여부와 OPEN 상태를 확인한다.
-2. 기존 ACTIVE 사용자라면 현재 ACTIVE 상태를 반환한다.
-3. 기존 WAITING 사용자라면 기존 위치를 제거한다.
-4. 대기열 상한을 확인한다.
-5. `INCR`로 새로운 sequence를 발급한다.
-6. WAITING ZSET과 lastSeen ZSET에 사용자를 추가한다.
-7. WAITING 상태와 현재 순번을 반환한다.
+- 이벤트별 Admission lease 획득 → 분산 서버에서 Worker의 동시 실행 방지
+- 이벤트가 입장 가능한 상태인지 확인
+- 현재 ACTIVE 인원 조회
+- `ACTIVE 상한 - 현재 ACTIVE 인원`으로 빈 슬롯 계산
+  - 빈 슬롯과 배치 크기 중 작은 값을 입장 인원으로 결정
+- `ZPOPMIN`으로 WAITING 선두 사용자 추출
+- 추출한 사용자를 `waiting-last-seen`에서 삭제
+- ACTIVE ZSET에 `마지막 접근 시각`, `userId` 저장
+- `meta.lastAdmittedSequence` 갱신
+- 입장 인원 반환
 
-WAITING 상태에서 등록 API를 다시 호출하면 새로운 sequence를 받아 대기열 마지막으로 이동한다. 별도의 pageSessionId는 사용하지 않는다.
+## 4. 마주한 문제
 
-### 3.2 순번 확인
+### 대기열 상태 polling 부하
 
-브라우저는 상태 API를 주기적으로 호출한다.
+모든 사용자가 개인 status API를 반복 호출하면 요청마다 Redis에서 `ZRANK`를 실행해야 한다. 대기 인원이 증가할수록 WAITING 서버와 Redis 부하도 함께 증가한다. 이를 줄이기 위해 이벤트 공통 progress API를 제공한다. WAITING 서버는 Redis의 `lastAdmittedSequence`(마지막 입장 순번)를 조회하고 3초 동안 캐싱한다.
 
-```text
-GET /api/v1/waiting-events/{eventId}/queue/status
-```
+브라우저는 자신의 sequence와 `lastAdmittedSequence`를 비교하여 근사 순번을 계산한다. 순번이 먼 사용자는 공통 progress만 조회하고 입장이 가까워졌을 때 개인 status를 조회한다. **근사 순번을 사용해도 괜찮다고 생각한 이유**는 아래와 같다.
 
-STATUS Lua는 `ZRANK`로 사용자의 0-based rank를 구한다. 응답에서는 `rank + 1`을 사용자 순번으로 표시하며, 동시에 WAITING lastSeen을 갱신한다.
+- 대기열의 순번은 정확하지 않아도 된다. 실제 순번 입장은 Redis 내에서 정확하게 이루어진다.
+- 엄격한 순번 표시 유지와 성능 최적화 중 후자의 이득이 높다. 순번이 엄격하게 표시되어야 한다면 근사 순번을 사용하면 안 된다.
 
-브라우저 polling은 현재 위치에 따라 간격을 조절하고 jitter를 추가하여 같은 시점에 요청이 몰리는 현상을 완화한다. 일정 시간 동안 상태 조회가 없는 WAITING 사용자는 연결이 끊어진 것으로 판단하여 제거한다.
+또한 polling에는 **jitter**를 적용하여 여러 브라우저의 요청이 같은 순간에 몰리는 현상을 줄인다.
 
-### 3.3 입장 허용
+### 대기열, 입장열 등록 정합성
 
-Admission Worker는 설정된 주기마다 열린 이벤트를 조회한다. 이벤트별 lease를 획득한 Worker만 ADMIT Lua를 실행한다.
+Redis는 하나의 Lua 스크립트를 실행하는 동안 다른 명령을 중간에 실행하지 않으므로 등록 과정의 원자성을 보장할 수 있다.
 
-입장 인원은 다음 값 중 최솟값이다.
+### 분산 Worker 중복 실행
 
-```text
-입장 인원 = min(
-    현재 admission tokens,
-    maxActiveUsers - 현재 ACTIVE 인원,
-    admissionBatchSize
-)
-```
+WAITING 서버가 여러 대이면 각 서버의 Admission Worker가 동시에 실행될 수 있다. Lua 스크립트는 Redis에서 순차적으로 실행되지만 여러 Worker가 연속해서 ADMIT을 실행하면 비효율이 발생한다. 따라서 이벤트별 **분산 lease**(분산 lock)를 사용하여 해당 시점에 하나의 Worker만 입장을 처리하도록 했다. lease를 획득한 Worker만 ADMIT Lua를 실행한다.
 
-`admission-budget`은 여러 서버와 여러 실행 회차가 공유하는 토큰 버킷이다. 예를 들어 초당 입장량이 100명이면 시간 경과에 따라 초당 최대 100개의 토큰이 충전된다.
+### 입장 속도 평탄화
 
-ADMIT Lua는 `ZPOPMIN`으로 WAITING 선두 사용자를 한 번에 추출하고 ACTIVE 상태를 일괄 기록한다. 따라서 입장 순서와 ACTIVE 슬롯 제한, 토큰 차감이 하나의 원자적 작업으로 처리된다.
+사용자를 한꺼번에 ACTIVE로 이동시키면 브라우저가 ACTIVE를 확인한 시점에 BOOKING 요청도 한꺼번에 발생할 수 있다. 만약 초당 100명의 입장을 원한다면 스케줄링 주기를 100ms, 배치 크기를 10명으로 설정해 입장 시점을 평탄화할 수 있다.
 
-### 3.4 BOOKING 자동 진입
+### 접속을 종료한 사용자 정리
 
-브라우저의 다음 상태 polling에서 ACTIVE와 admissionToken을 받으면 사용자 조작 없이 BOOKING API를 자동 호출한다. 서버 push 방식이 아니므로 실제 이동 시점은 ACTIVE 전환 후 다음 polling 시점이다.
-
-BOOKING 서버는 토큰을 확인한 뒤 WAITING 서버에 활동 기록을 요청한다. 이 요청이 유효해야 예매 처리를 시작한다. 단순 상태 polling은 ACTIVE 시간을 연장하지 않는다.
-
-ACTIVE 만료 시각은 다음 두 조건 중 빠른 시각이다.
-
-```text
-min(
-    최초 ACTIVE 시각 + 절대 사용 시간,
-    마지막 실제 요청 시각 + 유휴 허용 시간
-)
-```
-
-### 3.5 완료와 슬롯 반환
-
-현재 BOOKING 테스트는 가상 스레드에서 10초간 대기한 뒤 성공한 것으로 처리한다. 완료 후 WAITING 서버의 release API를 비동기로 호출한다.
-
-RELEASE Lua는 ACTIVE 상태와 sequence가 일치하는지 확인한 뒤 사용자의 ACTIVE 데이터를 제거한다. 반환된 슬롯에는 `admitNow()`를 통해 다음 WAITING 사용자를 즉시 입장시킨다.
-
-실제 운영에서는 BOOKING 서버가 완료 이벤트를 메시지 큐에 발행하고 WAITING 측 소비자가 슬롯을 반환하는 방식으로 대체할 수 있다.
-
-### 3.6 이탈과 만료
-
-| 상황 | 처리 |
-|---|---|
-| WAITING 브라우저 종료 | 상태 polling이 중단되고 유휴 제한 이후 대기열에서 제거 |
-| WAITING에서 새로고침 | 등록 API가 다시 실행되어 대기열 마지막으로 이동 |
-| ACTIVE 상태 조회만 반복 | ACTIVE 시간은 연장되지 않음 |
-| ACTIVE 후 BOOKING 미진입 | 유휴 제한 이후 ACTIVE 슬롯 반환 |
-| BOOKING 요청 수행 | 실제 요청 시 ACTIVE 유효 시간 갱신 |
-| ACTIVE 절대 시간 초과 | 활동 여부와 관계없이 슬롯 반환 |
-| BOOKING 완료 | 비동기 release 후 슬롯 즉시 반환 |
+브라우저가 닫혔는지를 WAITING 서버가 즉시 정확하게 판단할 수는 없다. WAITING 사용자가 status를 조회할 때 마지막 접근 시각을 기록한다. 일정 시간 동안 조회가 없다면 대기열을 이탈한 것으로 판단하고 WAITING과 `waiting-last-seen`에서 함께 제거한다. 현재 구현에서 입장열은 단순히 5초 뒤 종료되지만, 실제 티켓 예매라면 아무 작업도 하지 않는 사용자나 이탈한 사용자를 어떻게 처리할지 별도로 고려해야 한다.
