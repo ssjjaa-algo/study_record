@@ -62,7 +62,7 @@ public class WaitingQueueController {
             @PathVariable String eventId,
             @ModelAttribute QueueReleaseRequest request
     ) {
-        return service.release(eventId, request.userId(), request.sequence(), request.authority())
+        return service.release(eventId, request.userId(), request.authority())
                 .map(WaitingQueueStatusResponse::from)
                 .map(ResponseEntity::ok);
     }

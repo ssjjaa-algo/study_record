@@ -43,7 +43,7 @@ public class AdmissionService {
         worker = Flux.interval(Duration.ZERO, Duration.ofMillis(properties.worker().admissionIntervalMs()))
                 .onBackpressureDrop()
                 .concatMap(ignored -> registryRepository.findOpenEventIds()
-                        .flatMap(eventId -> admitNow(eventId)
+                        .flatMap(eventId -> admit(eventId)
                                 .onErrorResume(exception -> {
                                     log.error("Admission failed. eventId={}", eventId, exception);
                                     return Mono.empty();
@@ -56,12 +56,11 @@ public class AdmissionService {
                 .subscribe();
     }
 
-    public Mono<Long> admitNow(String eventId) {
+    private Mono<Long> admit(String eventId) {
         return leaseRepository.tryAcquire(eventId, "admission", properties.worker().admissionLeaseMs())
                 .flatMap(acquired -> acquired
                         ? queueRepository.admit(
                                 eventId,
-                                properties.worker().expirationBatchSize(),
                                 properties.worker().admissionBatchSize()
                         )
                         : Mono.just(0L));

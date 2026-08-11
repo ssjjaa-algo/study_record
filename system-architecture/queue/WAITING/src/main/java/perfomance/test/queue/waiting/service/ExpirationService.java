@@ -23,7 +23,6 @@ public class ExpirationService {
     private final WaitingQueueRegistryRepository registryRepository;
     private final WaitingQueueRepository queueRepository;
     private final WaitingQueueWorkerLeaseRepository leaseRepository;
-    private final AdmissionService admissionService;
     private final WaitingQueueProperties properties;
     private Disposable worker;
 
@@ -31,13 +30,11 @@ public class ExpirationService {
             WaitingQueueRegistryRepository registryRepository,
             WaitingQueueRepository queueRepository,
             WaitingQueueWorkerLeaseRepository leaseRepository,
-            AdmissionService admissionService,
             WaitingQueueProperties properties
     ) {
         this.registryRepository = registryRepository;
         this.queueRepository = queueRepository;
         this.leaseRepository = leaseRepository;
-        this.admissionService = admissionService;
         this.properties = properties;
     }
 
@@ -60,15 +57,13 @@ public class ExpirationService {
     private Mono<Void> expireEvent(String eventId) {
         return leaseRepository.tryAcquire(eventId, "expiration", properties.worker().expirationLeaseMs())
                 .filter(Boolean::booleanValue)
-                .flatMap(ignored -> queueRepository.expireActive(eventId, properties.worker().expirationBatchSize()))
-                .flatMap(expiredCount -> {
-                    if (expiredCount == 0) {
-                        return Mono.empty();
-                    }
-                    return admissionService.admitNow(eventId).then();
-                })
+                .flatMap(ignored -> queueRepository.expireInactive(
+                        eventId,
+                        properties.worker().expirationBatchSize()
+                ))
+                .then()
                 .onErrorResume(exception -> {
-                    log.error("Active expiration failed. eventId={}", eventId, exception);
+                    log.error("Queue expiration failed. eventId={}", eventId, exception);
                     return Mono.empty();
                 });
     }

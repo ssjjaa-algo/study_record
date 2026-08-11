@@ -10,11 +10,8 @@ public record WaitingQueueProperties(
     public record Defaults(
             int maxWaitingUsers,
             int maxActiveUsers,
-            int admissionRatePerSecond,
             long waitingInactivityTimeoutSeconds,
-            long activeInactivityTimeoutSeconds,
-            long maxActiveDurationSeconds,
-            long dataRetentionSeconds
+            long activeInactivityTimeoutSeconds
     ) {
     }
 

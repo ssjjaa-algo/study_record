@@ -19,11 +19,28 @@ public class WaitingQueueRepository {
     }
 
     public Mono<QueueCommandResult> register(String eventId, String userId) {
-        return executeResult(WaitingQueueRedisScripts.REGISTER, queueKeys(eventId), List.of(userId));
+        return executeResult(
+                WaitingQueueRedisScripts.REGISTER,
+                List.of(
+                        WaitingQueueRedisKeys.meta(eventId),
+                        WaitingQueueRedisKeys.waiting(eventId),
+                        WaitingQueueRedisKeys.waitingLastSeen(eventId),
+                        WaitingQueueRedisKeys.active(eventId)
+                ),
+                List.of(userId)
+        );
     }
 
     public Mono<QueueCommandResult> findStatus(String eventId, String userId) {
-        return executeResult(WaitingQueueRedisScripts.STATUS, queueKeys(eventId), List.of(userId));
+        return executeResult(
+                WaitingQueueRedisScripts.STATUS,
+                List.of(
+                        WaitingQueueRedisKeys.waiting(eventId),
+                        WaitingQueueRedisKeys.waitingLastSeen(eventId),
+                        WaitingQueueRedisKeys.active(eventId)
+                ),
+                List.of(userId)
+        );
     }
 
     public Mono<WaitingQueueProgress> findProgress(String eventId) {
@@ -51,44 +68,37 @@ public class WaitingQueueRepository {
                 });
     }
 
-    public Mono<Long> admit(String eventId, int expirationBatchSize, int admissionBatchSize) {
+    public Mono<Long> admit(String eventId, int admissionBatchSize) {
         return redisTemplate.execute(
                 WaitingQueueRedisScripts.ADMIT,
                 List.of(
                         WaitingQueueRedisKeys.meta(eventId),
                         WaitingQueueRedisKeys.waiting(eventId),
-                        WaitingQueueRedisKeys.active(eventId),
-                        WaitingQueueRedisKeys.state(eventId),
-                        WaitingQueueRedisKeys.userSequence(eventId),
-                        WaitingQueueRedisKeys.activeStarted(eventId),
-                        WaitingQueueRedisKeys.admissionBudget(eventId),
-                        WaitingQueueRedisKeys.waitingLastSeen(eventId)
+                        WaitingQueueRedisKeys.waitingLastSeen(eventId),
+                        WaitingQueueRedisKeys.active(eventId)
                 ),
-                List.of(
-                        Integer.toString(expirationBatchSize),
-                        Integer.toString(admissionBatchSize)
-                )
+                List.of(Integer.toString(admissionBatchSize))
         )
                 .next()
                 .defaultIfEmpty(0L);
     }
 
-    public Mono<QueueCommandResult> release(String eventId, String userId, long sequence) {
+    public Mono<QueueCommandResult> release(String eventId, String userId) {
         return executeResult(
                 WaitingQueueRedisScripts.RELEASE,
-                queueKeys(eventId),
-                List.of(userId, Long.toString(sequence))
+                List.of(WaitingQueueRedisKeys.active(eventId)),
+                List.of(userId)
         );
     }
 
-    public Mono<Long> expireActive(String eventId, int batchSize) {
+    public Mono<Long> expireInactive(String eventId, int batchSize) {
         return redisTemplate.execute(
                         WaitingQueueRedisScripts.EXPIRE,
                         List.of(
-                                WaitingQueueRedisKeys.active(eventId),
-                                WaitingQueueRedisKeys.state(eventId),
-                                WaitingQueueRedisKeys.userSequence(eventId),
-                                WaitingQueueRedisKeys.activeStarted(eventId)
+                                WaitingQueueRedisKeys.meta(eventId),
+                                WaitingQueueRedisKeys.waiting(eventId),
+                                WaitingQueueRedisKeys.waitingLastSeen(eventId),
+                                WaitingQueueRedisKeys.active(eventId)
                         ),
                         List.of(Integer.toString(batchSize))
                 )
@@ -108,30 +118,15 @@ public class WaitingQueueRepository {
     }
 
     private QueueCommandResult parseResult(String raw) {
-        String[] values = raw.split("\\|", 6);
-        if (values.length != 6) {
+        String[] values = raw.split("\\|", 4);
+        if (values.length != 4) {
             throw new IllegalStateException("Unexpected Redis queue result: " + raw);
         }
         return new QueueCommandResult(
                 values[0],
                 Long.parseLong(values[1]),
                 Long.parseLong(values[2]),
-                Long.parseLong(values[3]),
-                Long.parseLong(values[4]),
-                "1".equals(values[5])
-        );
-    }
-
-    private List<String> queueKeys(String eventId) {
-        return List.of(
-                WaitingQueueRedisKeys.meta(eventId),
-                WaitingQueueRedisKeys.waiting(eventId),
-                WaitingQueueRedisKeys.active(eventId),
-                WaitingQueueRedisKeys.state(eventId),
-                WaitingQueueRedisKeys.userSequence(eventId),
-                WaitingQueueRedisKeys.sequence(eventId),
-                WaitingQueueRedisKeys.activeStarted(eventId),
-                WaitingQueueRedisKeys.waitingLastSeen(eventId)
+                "1".equals(values[3])
         );
     }
 }

@@ -20,28 +20,8 @@ public final class WaitingQueueRedisKeys {
         return eventKey(eventId, "active");
     }
 
-    public static String state(String eventId) {
-        return eventKey(eventId, "state");
-    }
-
-    public static String userSequence(String eventId) {
-        return eventKey(eventId, "user-sequence");
-    }
-
-    public static String activeStarted(String eventId) {
-        return eventKey(eventId, "active-started");
-    }
-
     public static String waitingLastSeen(String eventId) {
         return eventKey(eventId, "waiting-last-seen");
-    }
-
-    public static String sequence(String eventId) {
-        return eventKey(eventId, "sequence");
-    }
-
-    public static String admissionBudget(String eventId) {
-        return eventKey(eventId, "admission-budget");
     }
 
     public static String workerLease(String eventId, String workerName) {

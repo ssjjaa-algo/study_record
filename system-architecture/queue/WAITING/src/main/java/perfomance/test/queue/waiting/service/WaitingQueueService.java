@@ -1,7 +1,6 @@
 package perfomance.test.queue.waiting.service;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -23,17 +22,14 @@ public class WaitingQueueService {
     private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z0-9_-]{1,100}");
 
     private final WaitingQueueRepository repository;
-    private final AdmissionService admissionService;
     private final AdmissionTokenService tokenService;
     private final Map<String, Mono<WaitingQueueProgress>> progressCache = new ConcurrentHashMap<>();
 
     public WaitingQueueService(
             WaitingQueueRepository repository,
-            AdmissionService admissionService,
             AdmissionTokenService tokenService
     ) {
         this.repository = repository;
-        this.admissionService = admissionService;
         this.tokenService = tokenService;
     }
 
@@ -81,24 +77,19 @@ public class WaitingQueueService {
     public Mono<WaitingQueueStatus> release(
             String eventId,
             String userId,
-            long sequence,
             String authority
     ) {
         validate(eventId, userId, authority);
-        if (sequence <= 0) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "sequence must be positive."));
-        }
-        return repository.release(eventId, userId, sequence)
+        return repository.release(eventId, userId)
                 .flatMap(this::requireQueueResult)
-                .flatMap(result -> {
+                .map(result -> {
                     if (!"COMPLETED".equals(result.code())) {
-                        return Mono.error(new ResponseStatusException(
+                        throw new ResponseStatusException(
                                 HttpStatus.CONFLICT,
                                 "Only the matching active admission can be released."
-                        ));
+                        );
                     }
-                    return admissionService.admitNow(eventId)
-                            .thenReturn(toStatus(eventId, userId, result));
+                    return toStatus(eventId, userId, result);
                 });
     }
 
@@ -110,8 +101,6 @@ public class WaitingQueueService {
                     new ResponseStatusException(HttpStatus.CONFLICT, "Waiting event is not open."));
             case "QUEUE_FULL" -> Mono.error(
                     new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Waiting queue is full."));
-            case "ADMISSION_INVALID" -> Mono.error(
-                    new ResponseStatusException(HttpStatus.CONFLICT, "Admission sequence is no longer valid."));
             default -> Mono.just(result);
         };
     }
@@ -119,22 +108,13 @@ public class WaitingQueueService {
     private WaitingQueueStatus toStatus(String eventId, String userId, QueueCommandResult result) {
         WaitingQueueState state = WaitingQueueState.valueOf(result.code());
         Long position = result.rank() < 0 ? null : result.rank() + 1;
-        Long peopleAhead = result.rank() < 0 ? null : result.rank();
-        Instant expiresAt = result.expiresAtMillis() == 0
-                ? null
-                : Instant.ofEpochMilli(result.expiresAtMillis());
         String admissionToken = state == WaitingQueueState.ACTIVE
-                ? tokenService.issue(eventId, userId, result.sequence(), expiresAt)
+                ? tokenService.issue(eventId, userId)
                 : null;
         return new WaitingQueueStatus(
-                eventId,
-                userId,
                 state,
                 result.sequence(),
                 position,
-                peopleAhead,
-                result.activeCount(),
-                expiresAt,
                 nextPollAfterSeconds(state, position),
                 admissionToken
         );
