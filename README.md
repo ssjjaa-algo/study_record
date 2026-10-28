@@ -37,7 +37,3 @@
 
 - [시스템 아키텍처](./system-architecture/)
 
-### 🌐 English
-
-- [영어 학습](./english/)
-- [영어 학습 기록](./notion-record/english/)
